@@ -1,0 +1,20 @@
+[package]
+name = "cashcontracts"
+version = "0.1.0"
+authors = ["tobiasruck <ruck.tobias@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+hex = "0.4"
+hex-literal = "0.2"
+error-chain = "0.11"
+derive-error-chain = "0.11"
+sha-1 = "0.8"
+ripemd160 = "0.8"
+sha2 = "0.8"
+
+num = "0.2"
+num-derive = "0.3"
+num-traits = "0.2"
