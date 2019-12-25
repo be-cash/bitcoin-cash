@@ -137,13 +137,9 @@ impl<'a> Address<'a> {
     pub fn addr_type(&self) -> AddressType {
         self.addr_type
     }
+
     pub fn with_prefix<P: Into<AddressPrefix<'a>>>(&'a self, prefix: P) -> Address<'a> {
-        Address {
-            cash_addr: Cow::Borrowed(&self.cash_addr),
-            addr_type: self.addr_type,
-            hash: self.hash,
-            prefix: prefix.into(),
-        }
+        Self::from_hash(prefix, self.addr_type, self.hash)
     }
 }
 
@@ -339,6 +335,18 @@ mod tests {
         assert_eq!(addr.hash(), &Hash160::new([0; 20]));
         assert_eq!(addr.prefix_kind(), None);
         assert_eq!(addr.prefix_str(), "redridinghood");
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_prefix() -> Result<()> {
+        let addr = Address::from_cash_addr("redridinghood:pqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqxmg9w0gt")?;
+        let new_addr = addr.with_prefix("prelude");
+        assert_eq!(new_addr.addr_type(), AddressType::P2SH);
+        assert_eq!(new_addr.cash_addr(), "prelude:pqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqrs52h40n");
+        assert_eq!(new_addr.hash(), &Hash160::new([0; 20]));
+        assert_eq!(new_addr.prefix_kind(), None);
+        assert_eq!(new_addr.prefix_str(), "prelude");
         Ok(())
     }
 }
