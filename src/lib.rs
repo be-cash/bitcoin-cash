@@ -4,7 +4,7 @@ extern crate derive_error_chain;
 
 mod hash;
 pub mod error;
-mod address;
+pub mod address;
 
 pub use hash::*;
-pub use address::*;
+pub use address::{Address, AddressType, Prefix};
