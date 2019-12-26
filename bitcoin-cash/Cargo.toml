@@ -1,0 +1,22 @@
+[package]
+name = "bitcoin-cash"
+version = "0.1.0"
+authors = ["tobiasruck <ruck.tobias@gmail.com>"]
+edition = "2018"
+license = "MIT"
+
+[dependencies]
+hex = "0.4"
+hex-literal = "0.2"
+error-chain = "0.11"
+derive-error-chain = "0.11"
+sha-1 = "0.8"
+ripemd160 = "0.8"
+sha2 = "0.8"
+serde = "1.0"
+serde_derive = "1.0"
+byteorder = "1.3"
+
+num = "0.2"
+num-derive = "0.3"
+num-traits = "0.2"
