@@ -148,7 +148,7 @@ impl<'de, 'a> serde::de::Deserializer<'de> for &'a mut Deserializer<'de> {
     fn deserialize_str<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         let len = read_var_int(&mut self.input)? as usize;
         let slice = self.input.read_slice(len)?;
-        visitor.visit_str(&std::str::from_utf8(slice)?)
+        visitor.visit_borrowed_str(&std::str::from_utf8(slice)?)
     }
 
     fn deserialize_string<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
@@ -160,7 +160,7 @@ impl<'de, 'a> serde::de::Deserializer<'de> for &'a mut Deserializer<'de> {
 
     fn deserialize_bytes<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         let len = read_var_int(&mut self.input)? as usize;
-        visitor.visit_bytes(self.input.read_slice(len)?)
+        visitor.visit_borrowed_bytes(self.input.read_slice(len)?)
     }
 
     fn deserialize_byte_buf<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
@@ -303,6 +303,138 @@ mod tests {
             seq: vec![b"\x77".to_vec(), b"\x99".to_vec()],
         };
         assert_eq!(expected, decode_bitcoin_code(&j)?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_fields() -> Result<()> {
+        #[derive(Deserialize, Serialize, PartialEq, Debug)]
+        struct TestElement<'a> {
+            name: String,
+            name_ref: &'a str,
+        }
+
+        #[derive(Deserialize, Serialize, PartialEq, Debug)]
+        struct TestPack(u8, u16, u32, u64, i8, i16, i32, i64);
+
+        #[derive(Deserialize, Serialize, PartialEq, Debug)]
+        struct TestUnit;
+
+        #[derive(Deserialize, Serialize, PartialEq, Debug)]
+        struct Test<'a> {
+            int: u32,
+            seq: Vec<Vec<u8>>,
+            relay: bool,
+            slice: &'a [u8],
+            pack: TestPack,
+            unit_struct: TestUnit,
+            unit: (),
+            vec: Vec<(TestElement<'a>, ())>,
+        }
+
+        let sample = Test {
+            int: 1,
+            seq: vec![b"\x77".to_vec(), b"\x99".to_vec()],
+            relay: true,
+            slice: b"whatever",
+            pack: TestPack(1, 2, 3, 4, 5, 6, 7, 8),
+            unit_struct: TestUnit,
+            unit: (),
+            vec: vec![
+                (
+                    TestElement {
+                        name: "banana".to_string(),
+                        name_ref: "teracotta",
+                    },
+                    (),
+                ),
+                (
+                    TestElement {
+                        name: "pie".to_string(),
+                        name_ref: "what",
+                    },
+                    (),
+                ),
+            ],
+        };
+        let sample_encoded = hex::decode(format!(
+            "01000000\
+            0201770199\
+            01\
+            08{}\
+            010200030000000400000000000000\
+            050600070000000800000000000000\
+            02\
+            06{}09{}\
+            03{}04{}",
+            hex::encode(b"whatever"),
+            hex::encode(b"banana"),
+            hex::encode(b"teracotta"),
+            hex::encode(b"pie"),
+            hex::encode(b"what"),
+        ))?;
+        assert_eq!(sample, decode_bitcoin_code(&encode_bitcoin_code(&sample)?)?);
+        assert_eq!(sample, decode_bitcoin_code(&sample_encoded)?);
+        assert_eq!(encode_bitcoin_code(&sample)?, sample_encoded);
+        Ok(())
+    }
+
+    #[test]
+    fn test_encode_lengths() -> Result<()> {
+        #[derive(Deserialize, Serialize, PartialEq, Debug)]
+        struct Test(Vec<u8>);
+        let encoded = encode_bitcoin_code(&Test(vec![0x77; 0xfc]))?;
+        assert_eq!(encoded[0], 0xfc);
+        assert_eq!(&encoded[1..], &[0x77; 0xfc][..]);
+        let encoded = encode_bitcoin_code(&Test(vec![0x88; 0xfd]))?;
+        assert_eq!(&encoded[0..3], &[0xfd, 0xfd, 0x00][..]);
+        assert_eq!(&encoded[3..], &[0x88; 0xfd][..]);
+        let encoded = encode_bitcoin_code(&Test(vec![0x99; 0x103]))?;
+        assert_eq!(&encoded[0..3], &[0xfd, 0x03, 0x01][..]);
+        assert_eq!(&encoded[3..], &[0x99; 0x103][..]);
+        let encoded = encode_bitcoin_code(&Test(vec![0xaa; 0xffff]))?;
+        assert_eq!(&encoded[0..3], &[0xfd, 0xff, 0xff][..]);
+        assert_eq!(&encoded[3..], &[0xaa; 0xffff][..]);
+        let encoded = encode_bitcoin_code(&Test(vec![0xbb; 0x10000]))?;
+        assert_eq!(&encoded[0..5], &[0xfe, 0x00, 0x00, 0x01, 0x00][..]);
+        assert_eq!(&encoded[5..], &[0xbb; 0x10000][..]);
+        let encoded = encode_bitcoin_code(&Test(vec![0xbb; 0x123456]))?;
+        assert_eq!(&encoded[0..5], &[0xfe, 0x56, 0x34, 0x12, 0x00][..]);
+        assert_eq!(&encoded[5..], &[0xbb; 0x123456][..]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_decode_lengths() -> Result<()> {
+        #[derive(Deserialize, Serialize, PartialEq, Debug)]
+        struct Test(Vec<u8>);
+        let t: Test = decode_bitcoin_code(&[&[0xfc][..], &vec![0x77; 0xfc][..]].concat())?;
+        assert_eq!(t, Test(vec![0x77; 0xfc]));
+        let t: Test =
+            decode_bitcoin_code(&[&[0xfd, 0xfd, 0x00][..], &vec![0x88; 0xfd][..]].concat())?;
+        assert_eq!(t, Test(vec![0x88; 0xfd]));
+        let t: Test =
+            decode_bitcoin_code(&[&[0xfd, 0x03, 0x01][..], &vec![0x99; 0x103][..]].concat())?;
+        assert_eq!(t, Test(vec![0x99; 0x103]));
+        let t: Test =
+            decode_bitcoin_code(&[&[0xfd, 0xff, 0xff][..], &vec![0xaa; 0xffff][..]].concat())?;
+        assert_eq!(t, Test(vec![0xaa; 0xffff]));
+        let t: Test = decode_bitcoin_code(
+            &[
+                &[0xfe, 0x00, 0x00, 0x01, 0x00][..],
+                &vec![0xbb; 0x10000][..],
+            ]
+            .concat(),
+        )?;
+        assert_eq!(t, Test(vec![0xbb; 0x10000]));
+        let t: Test = decode_bitcoin_code(
+            &[
+                &[0xfe, 0x56, 0x34, 0x12, 0x00][..],
+                &vec![0xcc; 0x123456][..],
+            ]
+            .concat(),
+        )?;
+        assert_eq!(t, Test(vec![0xcc; 0x123456]));
         Ok(())
     }
 

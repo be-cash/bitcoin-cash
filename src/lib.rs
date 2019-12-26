@@ -9,6 +9,6 @@ mod hash;
 pub mod serialize;
 
 pub use address::{Address, AddressType, Prefix};
+pub use deserialize::decode_bitcoin_code;
 pub use hash::*;
 pub use serialize::encode_bitcoin_code;
-pub use deserialize::decode_bitcoin_code;
