@@ -1,11 +1,18 @@
 use crate::address::CashAddrError;
+use crate::deserialize::BitcoinCodeError;
 
-#[derive(Debug, ErrorChain, PartialEq)]
+#[derive(Debug, ErrorChain)]
 pub enum ErrorKind {
     Msg(String),
 
     #[error_chain(foreign)]
-    Fmt(hex::FromHexError),
+    FromHex(hex::FromHexError),
+
+    #[error_chain(foreign)]
+    Io(std::io::Error),
+
+    #[error_chain(foreign)]
+    Utf8(std::str::Utf8Error),
 
     #[error_chain(custom)]
     #[error_chain(description = |_| "invalid hash size")]
@@ -14,4 +21,7 @@ pub enum ErrorKind {
 
     #[error_chain(custom)]
     InvalidCashAddr(CashAddrError),
+
+    #[error_chain(custom)]
+    BitcoinCodeDeserialize(BitcoinCodeError),
 }
