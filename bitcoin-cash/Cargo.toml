@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["tobiasruck <ruck.tobias@gmail.com>"]
 edition = "2018"
 license = "MIT"
+description = "A library for creating and parsing Bitcoin Cash trasactions"
+homepage = "https://github.com/be-cash/bitcoin-cash"
+documentation = "https://github.com/be-cash/bitcoin-cash"
+repository = "https://github.com/be-cash/bitcoin-cash"
 
 [dependencies]
 hex = "0.4"
