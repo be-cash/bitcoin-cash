@@ -1,9 +1,9 @@
-use secp256k1::{Secp256k1, All, SecretKey, Message};
 use crate::{
-    ByteArray,
-    error::{Result, ResultExt, ErrorKind},
+    error::{ErrorKind, Result, ResultExt},
     ops::Function,
+    ByteArray,
 };
+use secp256k1::{All, Message, Secp256k1, SecretKey};
 
 pub struct Crypto {
     curve: Secp256k1<All>,
@@ -11,10 +11,16 @@ pub struct Crypto {
 
 impl Crypto {
     pub fn new() -> Self {
-        Crypto { curve: Secp256k1::new() }
+        Crypto {
+            curve: Secp256k1::new(),
+        }
     }
 
-    pub fn sign(&self, secret_key: &[u8], msg_array: ByteArray<'static>) -> Result<ByteArray<'static>> {
+    pub fn sign(
+        &self,
+        secret_key: &[u8],
+        msg_array: ByteArray<'static>,
+    ) -> Result<ByteArray<'static>> {
         let sk = SecretKey::from_slice(secret_key)
             .chain_err(|| ErrorKind::InvalidSize((32, secret_key.len())))?;
         let msg = Message::from_slice(&msg_array.data)

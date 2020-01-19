@@ -1,8 +1,7 @@
 use crate::ir;
-use proc_macro2::{TokenStream, Span};
+use bitcoin_cash_script::{Integer, OpcodeType};
+use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
-use bitcoin_cash_script::{OpcodeType, Integer};
-
 
 #[derive(Clone)]
 pub struct StackItem {
@@ -11,7 +10,6 @@ pub struct StackItem {
     has_generated_name: bool,
     integer: Option<Integer>,
 }
-
 
 pub struct GenerateScript {
     pub script_ident: TokenStream,
@@ -38,11 +36,11 @@ impl GenerateScript {
     pub fn run(&mut self, script: Result<ir::Script, syn::Error>) -> TokenStream {
         match self.run_script(script.map_err(Into::into)) {
             Ok(compiled_script) => compiled_script,
-            Err(err) => {
-                err.errs.into_iter()
-                    .map(|err| err.to_compile_error())
-                    .collect()
-            }
+            Err(err) => err
+                .errs
+                .into_iter()
+                .map(|err| err.to_compile_error())
+                .collect(),
         }
     }
 
@@ -58,16 +56,16 @@ impl GenerateScript {
             let ident = &input.ident;
             let ty = &input.ty;
             let ident_str = format!("{}", ident);
-            new_stmts.push(quote_spanned!{span=>
+            new_stmts.push(quote_spanned! {span=>
                 let #ident = <#ty as Default>::default().to_data();
             });
-            struct_fields.push(quote!{
+            struct_fields.push(quote! {
                 pub #ident: #ty
             });
-            impl_pushops.push(quote!{
+            impl_pushops.push(quote! {
                 self.#ident.to_pushop()
             });
-            impl_types.push(quote!{
+            impl_types.push(quote! {
                 <#ty as Default>::default().to_data_type()
             });
             impl_names.push(ident_str.clone());
@@ -133,18 +131,15 @@ impl GenerateScript {
 
     fn run_stmt(&mut self, stmt: ir::Stmt) -> Result<TokenStream, Error> {
         match stmt {
-            ir::Stmt::ForLoop(for_loop) => {
-                Err(Error::new(for_loop.span, format!("For loops not implemented yet")))
-            },
+            ir::Stmt::ForLoop(for_loop) => Err(Error::new(
+                for_loop.span,
+                format!("For loops not implemented yet"),
+            )),
             ir::Stmt::RustIf(if_stmt) => {
                 Err(Error::new(if_stmt.span, format!("If not implemented yet")))
-            },
-            ir::Stmt::Push(src, push) => {
-                self.run_push(src, push)
-            },
-            ir::Stmt::Opcode(src, opcode) => {
-                self.run_opcode(src, opcode)
-            },
+            }
+            ir::Stmt::Push(src, push) => self.run_push(src, push),
+            ir::Stmt::Opcode(src, opcode) => self.run_opcode(src, opcode),
             ir::Stmt::ScriptIf(src, script_if) => {
                 let mut tokens = Vec::new();
                 tokens.push(self.run_opcode(src, script_if.if_opcode)?);
@@ -155,7 +150,8 @@ impl GenerateScript {
                     then_tokens.push(self.run_stmt(stmt)?);
                 }
                 if let Some(else_opcode) = script_if.else_opcode {
-                    then_tokens.push(self.run_opcode(format!("{}", else_opcode.ident), else_opcode)?);
+                    then_tokens
+                        .push(self.run_opcode(format!("{}", else_opcode.ident), else_opcode)?);
                 }
                 let stack_after_then = std::mem::replace(&mut self.stack, stack_before);
                 let mut else_tokens = Vec::new();
@@ -167,11 +163,14 @@ impl GenerateScript {
                     script_if.endif_opcode,
                 )?);
                 if stack_after_then.len() != self.stack.len() {
-                    let then_names = stack_after_then.iter()
+                    let then_names = stack_after_then
+                        .iter()
                         .map(|item| format!("{}", item.ident))
                         .collect::<Vec<_>>()
                         .join(", ");
-                    let else_names = self.stack.iter()
+                    let else_names = self
+                        .stack
+                        .iter()
                         .map(|item| format!("{}", item.ident))
                         .collect::<Vec<_>>()
                         .join(", ");
@@ -181,34 +180,58 @@ impl GenerateScript {
                         else_names,
                     )));
                 }
-                for (idx, (then_item, else_item)) in stack_after_then.iter().rev().zip(self.stack.iter_mut().rev()).enumerate() {
+                for (idx, (then_item, else_item)) in stack_after_then
+                    .iter()
+                    .rev()
+                    .zip(self.stack.iter_mut().rev())
+                    .enumerate()
+                {
                     if then_item.has_generated_name != else_item.has_generated_name {
-                        return Err(Error::new(endif_span, format!(
-                            "Branch results in inconsistent stack item names. \
-                            Item {} from the top {} a name in the OP_IF branch while \
-                            it {} in the OP_ELSE branch.",
-                            idx,
-                            if !then_item.has_generated_name { "has" } else { "doesn't have" },
-                            if !else_item.has_generated_name { "does" } else { "doesn't" },
-                        )));
+                        return Err(Error::new(
+                            endif_span,
+                            format!(
+                                "Branch results in inconsistent stack item names. \
+                                 Item {} from the top {} a name in the OP_IF branch while \
+                                 it {} in the OP_ELSE branch.",
+                                idx,
+                                if !then_item.has_generated_name {
+                                    "has"
+                                } else {
+                                    "doesn't have"
+                                },
+                                if !else_item.has_generated_name {
+                                    "does"
+                                } else {
+                                    "doesn't"
+                                },
+                            ),
+                        ));
                     } else if !then_item.has_generated_name && !else_item.has_generated_name {
                         if then_item.name != else_item.name {
-                            return Err(Error::new(endif_span, format!(
-                                "Branch results in inconsistent stack item names. \
-                                Item {} from the top is named `{}` in the OP_IF branch while \
-                                it is named `{}` in the OP_ELSE branch.",
-                                idx,
-                                then_item.name,
-                                else_item.name,
-                            )));
+                            return Err(Error::new(
+                                endif_span,
+                                format!(
+                                    "Branch results in inconsistent stack item names. \
+                                     Item {} from the top is named `{}` in the OP_IF branch while \
+                                     it is named `{}` in the OP_ELSE branch.",
+                                    idx, then_item.name, else_item.name,
+                                ),
+                            ));
                         }
                     }
                     else_item.integer = None;
                 }
-                let then_outputs = stack_after_then.iter().map(|item| item.ident.clone()).collect::<Vec<_>>();
-                let else_outputs = self.stack.iter().map(|item| item.ident.clone()).collect::<Vec<_>>();
-                
-                tokens.push(quote!{
+                let then_outputs = stack_after_then
+                    .iter()
+                    .map(|item| item.ident.clone())
+                    .collect::<Vec<_>>();
+                let else_outputs = self
+                    .stack
+                    .iter()
+                    .map(|item| item.ident.clone())
+                    .collect::<Vec<_>>();
+
+                tokens.push(quote! {
                     let (#(#else_outputs),* ,) = bitcoin_cash_script::func::SECOND({
                         #(#then_tokens)*
                         (#(#then_outputs.clone()),* ,)
@@ -219,7 +242,7 @@ impl GenerateScript {
                 });
 
                 Ok(tokens.into_iter().collect())
-            },
+            }
         }
     }
 
@@ -227,9 +250,16 @@ impl GenerateScript {
         let has_generated_name = push.output_name.is_none();
         let span = push.span;
         let output_names = Self::to_vec_str_tokens(
-            push.output_name.as_ref().map(|ident| vec![ident.clone()]).as_ref().map(Vec::as_slice)
+            push.output_name
+                .as_ref()
+                .map(|ident| vec![ident.clone()])
+                .as_ref()
+                .map(Vec::as_slice),
         );
-        let ident = push.output_name.or_else(|| Some(self.make_ident(span))).unwrap();
+        let ident = push
+            .output_name
+            .or_else(|| Some(self.make_ident(span)))
+            .unwrap();
         self.stack.push(StackItem {
             ident: ident.clone(),
             name: ident.to_string(),
@@ -238,7 +268,7 @@ impl GenerateScript {
         });
         let script_ident = &self.script_ident;
         let expr = push.expr;
-        Ok(quote_spanned!{span=>
+        Ok(quote_spanned! {span=>
             let #ident = (#expr).to_data();
             #script_ident.push(bitcoin_cash_script::TaggedOp {
                 src: #src.into(),
@@ -261,7 +291,7 @@ impl GenerateScript {
             Some(&opcode_type @ OP_TOALTSTACK) => {
                 let stack_item = self.pop(opcode_type, span)?;
                 self.alt_stack.push(stack_item);
-                Ok(quote_spanned! {span=> 
+                Ok(quote_spanned! {span=>
                     #script_ident.push(bitcoin_cash_script::TaggedOp {
                         src: #src.into(),
                         op: bitcoin_cash_script::Op::Code(#ident),
@@ -271,7 +301,8 @@ impl GenerateScript {
                 })
             }
             Some(&opcode_type @ OP_FROMALTSTACK) => {
-                self.stack.push(Self::pop_stack(&mut self.alt_stack, opcode_type, span)?);
+                self.stack
+                    .push(Self::pop_stack(&mut self.alt_stack, opcode_type, span)?);
                 Ok(quote_spanned! {span=>
                     #script_ident.push(bitcoin_cash_script::TaggedOp {
                         src: #src.into(),
@@ -285,7 +316,13 @@ impl GenerateScript {
                 let stack_item = self.pop(opcode_type, span)?;
                 let item_idx = match stack_item.integer {
                     Some(integer) => integer as usize,
-                    _ => Err(Error::new(span, format!("{:?} expects an integer literal as top stack item", opcode_type)))?,
+                    _ => Err(Error::new(
+                        span,
+                        format!(
+                            "{:?} expects an integer literal as top stack item",
+                            opcode_type
+                        ),
+                    ))?,
                 };
                 if item_idx >= self.stack.len() {
                     Err(Error::new(
@@ -300,7 +337,8 @@ impl GenerateScript {
                 }
                 match opcode_type {
                     OP_PICK => {
-                        self.stack.push(self.stack[self.stack.len() - item_idx - 1].clone());  
+                        self.stack
+                            .push(self.stack[self.stack.len() - item_idx - 1].clone());
                     }
                     OP_ROLL => {
                         let rolled_stack_item = self.stack.remove(self.stack.len() - item_idx - 1);
@@ -323,37 +361,52 @@ impl GenerateScript {
             Some(&opcode_type) => {
                 self.run_other_opcode(src, opcode_type, opcode, input_names, output_names)
             }
-            None => {
-                self.run_opcode_function(src, opcode)
-            }
+            None => self.run_opcode_function(src, opcode),
         }
     }
 
-    fn run_other_opcode(&mut self, src: String, opcode_type: OpcodeType, opcode: ir::Opcode, input_names: TokenStream, output_names: TokenStream) -> Result<TokenStream, Error> {
+    fn run_other_opcode(
+        &mut self,
+        src: String,
+        opcode_type: OpcodeType,
+        opcode: ir::Opcode,
+        input_names: TokenStream,
+        output_names: TokenStream,
+    ) -> Result<TokenStream, Error> {
         let span = opcode.span;
         let behavior = opcode_type.behavior();
         if self.stack.len() < behavior.input_types.len() {
-            return Err(error_empty_stack(opcode_type, span))
+            return Err(error_empty_stack(opcode_type, span));
         }
-        let input_items = self.stack
+        let input_items = self
+            .stack
             .drain(self.stack.len() - behavior.input_types.len()..)
             .collect::<Vec<_>>();
         if let Some(input_names) = opcode.input_names {
             if input_items.len() != input_names.len() {
                 return Err(Error::new(
                     span,
-                    format!("Expected {} input names but got {}.", input_items.len(), input_names.len()),
-                ))
+                    format!(
+                        "Expected {} input names but got {}.",
+                        input_items.len(),
+                        input_names.len()
+                    ),
+                ));
             }
             for (input_item, input_name) in input_items.iter().zip(input_names) {
                 if let ir::OpcodeInput::Ident(ident) = input_name {
                     if input_item.has_generated_name {
                         return Err(Error::new(
                             ident.span(),
-                            format!("Expected named top stack item for `{}` but got unnamed.", ident),
-                        ))
+                            format!(
+                                "Expected named top stack item for `{}` but got unnamed.",
+                                ident
+                            ),
+                        ));
                     } else if input_item.name != ident.to_string() {
-                        let stack_names = self.stack.iter()
+                        let stack_names = self
+                            .stack
+                            .iter()
                             .chain(input_items.iter())
                             .map(|item| item.name.clone())
                             .collect::<Vec<_>>()
@@ -366,7 +419,7 @@ impl GenerateScript {
                                 ident,
                                 stack_names,
                             ),
-                        ))
+                        ));
                     }
                 }
             }
@@ -418,8 +471,7 @@ impl GenerateScript {
                         });
                     }
                 }
-            } 
-            
+            }
         }
         let output_let = if output_idents.len() == 1 {
             let output_ident = &output_idents[0];
@@ -427,12 +479,11 @@ impl GenerateScript {
         } else {
             quote_spanned! {span=> let (#(#output_idents),*) = }
         };
-        let input_idents = input_items.iter()
-            .map(|stack_item| {
-                let mut ident = stack_item.ident.clone();
-                ident.set_span(span);
-                ident
-            });
+        let input_idents = input_items.iter().map(|stack_item| {
+            let mut ident = stack_item.ident.clone();
+            ident.set_span(span);
+            ident
+        });
         let ident = opcode.ident;
         let script_ident = &self.script_ident;
         Ok(quote_spanned! {span=>
@@ -446,16 +497,23 @@ impl GenerateScript {
         })
     }
 
-    fn run_opcode_function(&mut self, src: String, opcode: ir::Opcode) -> Result<TokenStream, Error> {
+    fn run_opcode_function(
+        &mut self,
+        src: String,
+        opcode: ir::Opcode,
+    ) -> Result<TokenStream, Error> {
         match opcode.ident.to_string().as_str() {
             "depth_of" => {
                 if let Some(&[ir::OpcodeInput::Ident(ref ident)]) = opcode.input_names.as_deref() {
-                    if let Some(depth) = self.stack.iter().rev().position(|stack| stack.name == ident.to_string()) {
+                    if let Some(depth) = self
+                        .stack
+                        .iter()
+                        .rev()
+                        .position(|stack| stack.name == ident.to_string())
+                    {
                         let has_generated_name = opcode.output_names.is_none();
                         let span = opcode.span;
-                        let output_names = Self::to_vec_str_tokens(
-                            opcode.output_names.as_deref()
-                        );
+                        let output_names = Self::to_vec_str_tokens(opcode.output_names.as_deref());
                         let ident = if let Some(&[ref ident]) = opcode.output_names.as_deref() {
                             ident.clone()
                         } else {
@@ -469,7 +527,7 @@ impl GenerateScript {
                             integer: Some(depth),
                         });
                         let script_ident = &self.script_ident;
-                        Ok(quote_spanned!{span=>
+                        Ok(quote_spanned! {span=>
                             let #ident = (#depth).to_data();
                             #script_ident.push(bitcoin_cash_script::TaggedOp {
                                 src: #src.into(),
@@ -484,28 +542,39 @@ impl GenerateScript {
                 } else {
                     Err(Error::new(opcode.span, "Expected 1 parameter"))
                 }
-            },
+            }
             "transmute" => {
-                if let Some(&[ir::OpcodeInput::Ident(ref ident), ir::OpcodeInput::Expr(ref type_expr)]) = opcode.input_names.as_deref() {
+                if let Some(
+                    &[ir::OpcodeInput::Ident(ref ident), ir::OpcodeInput::Expr(ref type_expr)],
+                ) = opcode.input_names.as_deref()
+                {
                     let span = opcode.span;
                     if let Some(&[ref out_ident]) = opcode.output_names.as_deref() {
                         if out_ident != ident {
-                            return Err(Error::new(opcode.span, "Input and output name must be the same"));
+                            return Err(Error::new(
+                                opcode.span,
+                                "Input and output name must be the same",
+                            ));
                         }
                     };
                     let ident_name = ident.to_string();
-                    let item = self.stack.iter().find(|item| item.name == ident_name).ok_or(
-                        Error::new(opcode.span, "Couldn't find stack item")
-                    )?;
+                    let item = self
+                        .stack
+                        .iter()
+                        .find(|item| item.name == ident_name)
+                        .ok_or(Error::new(opcode.span, "Couldn't find stack item"))?;
                     let item_ident = &item.ident;
-                    Ok(quote_spanned!{span=>
+                    Ok(quote_spanned! {span=>
                         let #item_ident = <#type_expr as Default>::default().to_data();
                     })
                 } else {
-                    Err(Error::new(opcode.span, format!("Expected 1 parameter, got {:?}", opcode.input_names)))
+                    Err(Error::new(
+                        opcode.span,
+                        format!("Expected 1 parameter, got {:?}", opcode.input_names),
+                    ))
                 }
-            },
-            _ => Err(Error::new(opcode.span, "Unknown opcode/function"))
+            }
+            _ => Err(Error::new(opcode.span, "Unknown opcode/function")),
         }
     }
 
@@ -514,15 +583,19 @@ impl GenerateScript {
             Some(slice) => {
                 let names = slice.iter().map(|ident| {
                     let name = format!("{}", ident);
-                    quote!{#name.into()}
+                    quote! {#name.into()}
                 });
-                quote!{Some(vec![#(#names),*])}
+                quote! {Some(vec![#(#names),*])}
             }
-            None => quote!{None}
+            None => quote! {None},
         }
     }
 
-    fn pop_stack(stack: &mut Vec<StackItem>, opcode: OpcodeType, span: Span) -> Result<StackItem, Error> {
+    fn pop_stack(
+        stack: &mut Vec<StackItem>,
+        opcode: OpcodeType,
+        span: Span,
+    ) -> Result<StackItem, Error> {
         stack.pop().ok_or(error_empty_stack(opcode, span))
     }
 

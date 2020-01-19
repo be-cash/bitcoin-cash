@@ -1,4 +1,4 @@
-use bitcoin_cash_script::{Op, TaggedOp, OpcodeType::*, Ops, ByteArray};
+use bitcoin_cash_script::{ByteArray, Op, OpcodeType::*, Ops, TaggedOp};
 
 #[test]
 fn test_adding() {
@@ -62,15 +62,14 @@ fn test_inputs() {
     fn script(_: (), a: [u8; 1], b: [u8; 1]) {
         OP_CAT;
     }
-    assert_eq!(
-        script(()).ops().as_ref(),
-        &[Op::Code(OP_CAT)],
-    );
+    assert_eq!(script(()).ops().as_ref(), &[Op::Code(OP_CAT)],);
     assert_eq!(
         Inputs {
             a: b"A".clone(),
             b: b"B".clone(),
-        }.ops().as_ref(),
+        }
+        .ops()
+        .as_ref(),
         &[
             Op::PushByteArray(ByteArray::from_slice(b"A")),
             Op::PushByteArray(ByteArray::from_slice(b"B")),
@@ -138,14 +137,8 @@ fn test_let() {
         ],
     );
     assert_eq!(
-        Inputs {
-            a: 5,
-            b: 6,
-        }.ops().as_ref(),
-        &[
-            Op::PushInteger(5),
-            Op::PushInteger(6),
-        ],
+        Inputs { a: 5, b: 6 }.ops().as_ref(),
+        &[Op::PushInteger(5), Op::PushInteger(6),],
     );
 }
 
@@ -174,14 +167,8 @@ fn test_if() {
         ],
     );
     assert_eq!(
-        Inputs {
-            a: 5,
-            b: true,
-        }.ops().as_ref(),
-        &[
-            Op::PushInteger(5),
-            Op::PushBoolean(true),
-        ],
+        Inputs { a: 5, b: true }.ops().as_ref(),
+        &[Op::PushInteger(5), Op::PushBoolean(true),],
     );
 }
 
@@ -201,11 +188,13 @@ fn test_params() {
         let p1 = params.p1;
         let sum = OP_ADD(c, p1);
         let (sum, b) = OP_SWAP(b, sum);
-        OP_IF(b); {
+        OP_IF(b);
+        {
             let sum2 = OP_ADD(a, sum);
             let n = 4;
         }
-        OP_ELSE; {
+        OP_ELSE;
+        {
             let sum2 = OP_SUB(a, sum);
             let n = 4;
         }

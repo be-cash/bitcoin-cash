@@ -1,4 +1,4 @@
-use crate::{OpcodeType, ByteArray};
+use crate::{ByteArray, OpcodeType};
 use std::borrow::Cow;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -34,9 +34,11 @@ impl std::fmt::Debug for Op {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match self {
             Op::Code(code) => write!(f, "Code({:?})", code),
-            Op::PushByteArray(array) => {
-                write!(f, "PushByteArray(hex!({:?}).to_vec())", hex::encode(&array.data))
-            }
+            Op::PushByteArray(array) => write!(
+                f,
+                "PushByteArray(hex!({:?}).to_vec())",
+                hex::encode(&array.data)
+            ),
             Op::PushBoolean(boolean) => write!(f, "PushBoolean({:?})", boolean),
             Op::PushInteger(int) => write!(f, "PushInteger({})", int),
         }

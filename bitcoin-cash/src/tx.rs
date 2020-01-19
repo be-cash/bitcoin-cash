@@ -1,9 +1,9 @@
-use serde_derive::{Deserialize, Serialize};
-use crate::Sha256d;
 use crate::Script;
+use crate::Sha256d;
+use serde_derive::{Deserialize, Serialize};
 
 pub const DEFAULT_SEQUENCE: u32 = 0xffff_ffff;
-pub const MAX_SIGNATURE_SIZE: usize = 73;  // explained https://bitcoin.stackexchange.com/a/77192
+pub const MAX_SIGNATURE_SIZE: usize = 73; // explained https://bitcoin.stackexchange.com/a/77192
 
 #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
 pub struct TxOutpoint {

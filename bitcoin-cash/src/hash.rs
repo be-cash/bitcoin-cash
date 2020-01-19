@@ -1,4 +1,8 @@
-use crate::{error::{ErrorKind, Result}, ByteArray, ops::Function};
+use crate::{
+    error::{ErrorKind, Result},
+    ops::Function,
+    ByteArray,
+};
 
 use serde_derive::{Deserialize, Serialize};
 use sha1::Digest;

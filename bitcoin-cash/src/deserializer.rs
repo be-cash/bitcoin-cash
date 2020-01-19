@@ -1,5 +1,5 @@
 use crate::encoding_utils::read_var_int;
-use crate::error::{Error, ErrorKind, Result, BitcoinCodeError};
+use crate::error::{BitcoinCodeError, Error, ErrorKind, Result};
 use byteorder::{LittleEndian, ReadBytesExt};
 use serde::de::Visitor;
 use std::io::{self, Read};
@@ -343,14 +343,14 @@ mod tests {
         };
         let sample_encoded = hex::decode(format!(
             "01000000\
-            0201770199\
-            01\
-            08{}\
-            010200030000000400000000000000\
-            050600070000000800000000000000\
-            02\
-            06{}09{}\
-            03{}04{}",
+             0201770199\
+             01\
+             08{}\
+             010200030000000400000000000000\
+             050600070000000800000000000000\
+             02\
+             06{}09{}\
+             03{}04{}",
             hex::encode(b"whatever"),
             hex::encode(b"banana"),
             hex::encode(b"teracotta"),
@@ -463,11 +463,11 @@ mod tests {
         assert_eq!(
             hex::encode(&tx_in0.script),
             "0047304402207a8ed9b57865ce56935b60794526c9c48833f752394ba920faddb08a14cbd02502200879a\
-            7fe141bdab57d28fc778f85fa0dc5df1f6af2bcd1d793387e2f4ef7492a414730440220623322db152ba05\
-            3ed861fcd148d5fc0cc49158019911cf2a8411693e0bb95c602201f04cf4f81ec37e32aa030b89b359e3c4\
-            9491014bac2d70a201e14932647ef11414c6952210257be20743c0bc14d33e6c0fe5b887b6cf47883b8924\
-            282a6948db5774502acd4210280b4d5ca10b008b757999dae9bdad11a2c856490c3582bcdc9ff8ca458529\
-            bd12103ec98d577ea245b65ca8c77f94463920ca53356b99b5ce49691c65e26f5b5683153ae",
+             7fe141bdab57d28fc778f85fa0dc5df1f6af2bcd1d793387e2f4ef7492a414730440220623322db152ba05\
+             3ed861fcd148d5fc0cc49158019911cf2a8411693e0bb95c602201f04cf4f81ec37e32aa030b89b359e3c4\
+             9491014bac2d70a201e14932647ef11414c6952210257be20743c0bc14d33e6c0fe5b887b6cf47883b8924\
+             282a6948db5774502acd4210280b4d5ca10b008b757999dae9bdad11a2c856490c3582bcdc9ff8ca458529\
+             bd12103ec98d577ea245b65ca8c77f94463920ca53356b99b5ce49691c65e26f5b5683153ae",
         );
         assert_eq!(tx_in0.sequence, 0xffff_ffff);
 
@@ -481,11 +481,11 @@ mod tests {
         assert_eq!(
             hex::encode(&tx_in1.script),
             "0047304402207ac1f3a87aeef786e1550b7832ca355da2195cff83bb5546569511920b2a2b5c02207d28e\
-            7b02d57f59bfad26c681071a88b4e3903b07243735a9be5149bb28be2ed41483045022100a8a8af3a437c0\
-            dfa9c5bab36230d9e72727c972859a6faccc76b506a4ae3294702206b924799bdc4880a707ec4b15e76e25\
-            03e2693dc8c1694fde237b60ad71cb637414c69522102a9c79875e2de1a769831dba1a9cf20b7bddc48fbc\
-            bdb9c5eeab67d7fb682a01c21031187abcee948d3c93c065fe5e560f7ae9cb7735b4e70507cebdf18ac786\
-            0a793210314d67175239913da79a0c905e086ad842a0470fcb774929eec0c9cc1222a6ef153ae",
+             7b02d57f59bfad26c681071a88b4e3903b07243735a9be5149bb28be2ed41483045022100a8a8af3a437c0\
+             dfa9c5bab36230d9e72727c972859a6faccc76b506a4ae3294702206b924799bdc4880a707ec4b15e76e25\
+             03e2693dc8c1694fde237b60ad71cb637414c69522102a9c79875e2de1a769831dba1a9cf20b7bddc48fbc\
+             bdb9c5eeab67d7fb682a01c21031187abcee948d3c93c065fe5e560f7ae9cb7735b4e70507cebdf18ac786\
+             0a793210314d67175239913da79a0c905e086ad842a0470fcb774929eec0c9cc1222a6ef153ae",
         );
         assert_eq!(tx_in1.sequence, 0xffff_ffff);
 

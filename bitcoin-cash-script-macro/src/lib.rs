@@ -1,13 +1,15 @@
 extern crate proc_macro;
 
-mod parse;
 mod generate;
 mod ir;
-use quote::{quote};
-
+mod parse;
+use quote::quote;
 
 #[proc_macro_attribute]
-pub fn script(attr: proc_macro::TokenStream, item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn script(
+    attr: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
     let attr = syn::parse_macro_input!(attr as syn::AttributeArgs);
     let func = syn::parse_macro_input!(item as syn::ItemFn);
     let parsed_script = parse::parse_script(attr, func);

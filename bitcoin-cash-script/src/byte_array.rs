@@ -1,5 +1,5 @@
 use crate::Integer;
-use byteorder::{WriteBytesExt, LittleEndian};
+use byteorder::{LittleEndian, WriteBytesExt};
 use std::borrow::Cow;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -37,7 +37,7 @@ impl<'a> ByteArray<'a> {
         ByteArray {
             data: slice.into(),
             function: Function::Plain,
-            preimage: None
+            preimage: None,
         }
     }
 
@@ -51,13 +51,11 @@ impl<'a> ByteArray<'a> {
             } else {
                 vec![self]
             };
-            new_preimage.append(
-                &mut if other.preimage.is_some() {
-                    other.preimage.unwrap()
-                } else {
-                    vec![other]
-                }
-            );
+            new_preimage.append(&mut if other.preimage.is_some() {
+                other.preimage.unwrap()
+            } else {
+                vec![other]
+            });
             return ByteArray {
                 data: new_data.into(),
                 function: Function::Plain,
@@ -73,7 +71,12 @@ impl<'a> ByteArray<'a> {
 
     pub fn split(self, at: usize) -> Result<(ByteArray<'a>, ByteArray<'a>), String> {
         if self.data.len() < at {
-            return Err(format!("Index {} is out of bounds for array with length {}, {}.", at, self.data.len(), hex::encode(&self.data)))
+            return Err(format!(
+                "Index {} is out of bounds for array with length {}, {}.",
+                at,
+                self.data.len(),
+                hex::encode(&self.data)
+            ));
         }
         let mut data = self.data.into_owned();
         let other = data.split_off(at);
@@ -108,9 +111,8 @@ impl<'a> ByteArray<'a> {
                     }
                     len += part_len;
                 }
-                (Some(left_preimage),
-                 Some(right_preimage))
-            },
+                (Some(left_preimage), Some(right_preimage))
+            }
             _ => {
                 function = Function::UnexpectedSplit;
                 (None, None)
@@ -144,14 +146,14 @@ impl<'a> ByteArray<'a> {
 
     pub fn from_int(int: Integer, n_bytes: Integer) -> Result<Self, String> {
         if n_bytes <= 0 {
-            return Err(format!("n_bytes={} not valid", n_bytes))
+            return Err(format!("n_bytes={} not valid", n_bytes));
         }
         let max_bits = (n_bytes * 8 - 1).min(31) as u128;
         let max_num: u128 = 1 << max_bits;
         let max_num = (max_num - 1) as Integer;
         let min_num = -max_num;
         if int < min_num || int > max_num {
-            return Err(format!("int={} not valid for n_bytes={}", int, n_bytes))
+            return Err(format!("int={} not valid for n_bytes={}", int, n_bytes));
         }
         let mut bytes = Vec::new();
         bytes.write_i32::<LittleEndian>(int.abs()).unwrap();
@@ -176,12 +178,13 @@ impl<'a> ByteArray<'a> {
         ByteArray {
             data: self.data.clone().into_owned().into(),
             function: self.function,
-            preimage: self.preimage.as_ref().map(
-                |preimage| preimage.iter()
+            preimage: self.preimage.as_ref().map(|preimage| {
+                preimage
+                    .iter()
                     .cloned()
                     .map(|part| part.to_owned_array())
                     .collect()
-            ),
+            }),
         }
     }
 }
@@ -247,10 +250,7 @@ mod tests {
         let c = ByteArray::from_slice(b"C");
         let cat = a.concat(b).concat(c);
         let hash = sha2::Sha256::digest(&cat.data);
-        let hashed = cat.apply_function(
-            hash.as_ref().into(),
-            Function::Sha256,
-        );
+        let hashed = cat.apply_function(hash.as_ref().into(), Function::Sha256);
         let preimage = hashed.preimage.as_ref().expect("No preimage");
         assert_eq!(hashed.data.as_ref(), hash.as_ref());
         assert_eq!(preimage[0].data.as_ref(), b"A");
@@ -267,18 +267,12 @@ mod tests {
         let b = ByteArray::from_slice(b"B");
         let inner = a.concat(b);
         let inner_hash = sha2::Sha256::digest(&inner.data);
-        let inner_hashed = inner.apply_function(
-            inner_hash.as_ref().into(),
-            Function::Sha256,
-        );
+        let inner_hashed = inner.apply_function(inner_hash.as_ref().into(), Function::Sha256);
         let c = ByteArray::from_slice(b"C");
         let d = ByteArray::from_slice(b"D");
         let outer = c.concat(inner_hashed).concat(d);
         let outer_hash = sha2::Sha256::digest(&outer.data);
-        let outer_hashed = outer.apply_function(
-            outer_hash.as_ref().into(),
-            Function::Sha256,
-        );
+        let outer_hashed = outer.apply_function(outer_hash.as_ref().into(), Function::Sha256);
         assert_eq!(outer_hashed.data.as_ref(), outer_hash.as_ref());
         let outer_preimage = outer_hashed.preimage.as_ref().expect("No preimage");
         assert_eq!(outer_preimage.len(), 3);
@@ -321,10 +315,7 @@ mod tests {
         let b = ByteArray::from_slice(b"B");
         let inner = a.concat(b);
         let inner_hash = sha2::Sha256::digest(&inner.data);
-        let inner_hashed = inner.apply_function(
-            inner_hash.as_ref().into(),
-            Function::Sha256,
-        );
+        let inner_hashed = inner.apply_function(inner_hash.as_ref().into(), Function::Sha256);
         let c = ByteArray::from_slice(b"C");
         let d = ByteArray::from_slice(b"D");
         let outer = c.concat(inner_hashed.clone()).concat(d);
@@ -340,7 +331,10 @@ mod tests {
             assert_eq!(left_preimage[0].data.as_ref(), b"C");
             assert_eq!(left_preimage[0].preimage, None);
             assert_eq!(right.function, Function::Plain);
-            assert_eq!(right.data.as_ref(), [inner_hash.as_ref(), b"D"].concat().as_slice());
+            assert_eq!(
+                right.data.as_ref(),
+                [inner_hash.as_ref(), b"D"].concat().as_slice()
+            );
             assert_eq!(right_preimage.len(), 2);
             assert_eq!(right_preimage[0].function, Function::Sha256);
             assert_eq!(right_preimage[0].data.as_ref(), inner_hash.as_ref());
@@ -361,7 +355,10 @@ mod tests {
             let left_preimage = left.preimage.as_ref().expect("No preimage");
             let right_preimage = right.preimage.as_ref().expect("No preimage");
             assert_eq!(left.function, Function::Plain);
-            assert_eq!(left.data.as_ref(), [b"C", &inner_hash[..2]].concat().as_slice());
+            assert_eq!(
+                left.data.as_ref(),
+                [b"C", &inner_hash[..2]].concat().as_slice()
+            );
             assert_eq!(left_preimage.len(), 2);
             assert_eq!(left_preimage[0].function, Function::Plain);
             assert_eq!(left_preimage[0].data.as_ref(), b"C");
@@ -370,7 +367,10 @@ mod tests {
             assert_eq!(left_preimage[1].data.as_ref(), &inner_hash[..2]);
             assert_eq!(left_preimage[1].preimage, None);
             assert_eq!(right.function, Function::Plain);
-            assert_eq!(right.data.as_ref(), [&inner_hash[2..], b"D"].concat().as_slice());
+            assert_eq!(
+                right.data.as_ref(),
+                [&inner_hash[2..], b"D"].concat().as_slice()
+            );
             assert_eq!(right_preimage[0].data.as_ref(), &inner_hash[2..]);
             assert_eq!(right_preimage[0].preimage, None);
             assert_eq!(right_preimage[1].data.as_ref(), b"D");
@@ -383,7 +383,10 @@ mod tests {
             let left_preimage = left.preimage.as_ref().expect("No preimage");
             let right_preimage = right.preimage.as_ref().expect("No preimage");
             assert_eq!(left.function, Function::Plain);
-            assert_eq!(left.data.as_ref(), [b"C", inner_hash.as_ref()].concat().as_slice());
+            assert_eq!(
+                left.data.as_ref(),
+                [b"C", inner_hash.as_ref()].concat().as_slice()
+            );
             assert_eq!(left_preimage.len(), 2);
             assert_eq!(left_preimage[0].function, Function::Plain);
             assert_eq!(left_preimage[0].data.as_ref(), b"C");

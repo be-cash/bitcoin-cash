@@ -578,7 +578,7 @@ impl OpcodeType {
                 &[1, 0, 1],
                 &[Added, MovedIndirectly, MovedIndirectly],
             ),
-            
+
             OP_CAT => u(
                 &[ByteArray(None), ByteArray(None)],
                 &[ByteArray(None)],

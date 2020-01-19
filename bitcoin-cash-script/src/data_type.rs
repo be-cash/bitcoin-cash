@@ -1,4 +1,4 @@
-use crate::{Op, ByteArray};
+use crate::{ByteArray, Op};
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub enum DataType {

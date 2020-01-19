@@ -1,4 +1,8 @@
-use bitcoin_cash::{Script, Sha256d, Hashed, ops::{Op, OpcodeType}, error, TxOutput, ByteArray};
+use bitcoin_cash::{
+    error,
+    ops::{Op, OpcodeType},
+    ByteArray, Hashed, Script, Sha256d, TxOutput,
+};
 
 #[derive(Copy, Clone, Debug, Hash)]
 pub struct TokenId(Sha256d);
@@ -29,7 +33,9 @@ pub fn slp_send_output(
         Op::PushByteArray(token_id.to_vec().into()),
     ];
     for &output_amount in output_amounts {
-        ops.push(Op::PushByteArray(output_amount.to_be_bytes().to_vec().into()));
+        ops.push(Op::PushByteArray(
+            output_amount.to_be_bytes().to_vec().into(),
+        ));
     }
     TxOutput {
         value: 0,

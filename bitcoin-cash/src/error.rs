@@ -1,6 +1,5 @@
 use crate::address::CashAddrError;
 
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BitcoinCodeError {
     DeserializeAnyNotSupported,

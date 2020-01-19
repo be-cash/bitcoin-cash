@@ -1,25 +1,11 @@
-use crate::{
-    TxOutpoint,
-    TxInput,
-    TxOutput,
-    TxPreimage,
-    SigHashFlags,
-    Script,
-    ops::{InputScript, TaggedScript, TaggedScriptOps, Ops, Op},
-    MAX_SIGNATURE_SIZE,
-    UnhashedTx,
-    encode_bitcoin_code,
-    serialize_ops,
-    Hashed,
-    Address,
-    AddressType,
-    Prefix,
-    p2sh_script,
-    Hash160,
-    error::ErrorKind,
-    ByteArray,
-};
 use crate::error::Result;
+use crate::{
+    encode_bitcoin_code,
+    error::ErrorKind,
+    ops::{InputScript, Op, Ops, TaggedScript, TaggedScriptOps},
+    p2sh_script, serialize_ops, Address, AddressType, ByteArray, Hash160, Hashed, Prefix, Script,
+    SigHashFlags, TxInput, TxOutpoint, TxOutput, TxPreimage, UnhashedTx, MAX_SIGNATURE_SIZE,
+};
 use std::collections::HashMap;
 
 #[derive(PartialEq, Debug)]
@@ -31,7 +17,16 @@ pub struct EmptyTxInput {
 
 struct TxBuilderInput<'b> {
     input: EmptyTxInput,
-    func_script: Box<dyn Fn(&[TxPreimage], &TxBuilder, Vec<ByteArray<'static>>, &Script, &[TxOutput]) -> Script<'static> + 'b>,
+    func_script: Box<
+        dyn Fn(
+                &[TxPreimage],
+                &TxBuilder,
+                Vec<ByteArray<'static>>,
+                &Script,
+                &[TxOutput],
+            ) -> Script<'static>
+            + 'b,
+    >,
     sig_hash_flags: Vec<SigHashFlags>,
     lock_script: TaggedScriptOps,
 }
@@ -87,7 +82,9 @@ pub trait InputScriptBuilder {
         lock_script: &Script<'a>,
         tx_outputs: &[TxOutput],
     ) -> Self::Script;
-    fn is_p2sh(&self) -> bool { true }
+    fn is_p2sh(&self) -> bool {
+        true
+    }
 }
 
 impl<'b> TxBuilder<'b> {
@@ -105,16 +102,22 @@ impl<'b> TxBuilder<'b> {
         &mut self,
         input: impl Into<EmptyTxInput>,
         lock_script: TaggedScript<I>,
-        input_script_builder: impl InputScriptBuilder<Script=I> + 'b,
+        input_script_builder: impl InputScriptBuilder<Script = I> + 'b,
     ) {
         let sig_hash_flags = input_script_builder.sig_hash_flags();
-        let func = move |tx_preimage: &[TxPreimage], unsigned_tx: &TxBuilder, sigs: Vec<ByteArray<'static>>, lock_script: &Script, tx_outputs: &[TxOutput]| {
+        let func = move |tx_preimage: &[TxPreimage],
+                         unsigned_tx: &TxBuilder,
+                         sigs: Vec<ByteArray<'static>>,
+                         lock_script: &Script,
+                         tx_outputs: &[TxOutput]| {
             let mut ops: Vec<_> = input_script_builder
                 .build_script(tx_preimage, unsigned_tx, sigs, lock_script, tx_outputs)
                 .ops()
                 .into();
             if input_script_builder.is_p2sh() {
-                ops.push(Op::PushByteArray(serialize_ops(&lock_script.ops()).unwrap().into()));
+                ops.push(Op::PushByteArray(
+                    serialize_ops(&lock_script.ops()).unwrap().into(),
+                ));
             }
             Script::new(ops.into())
         };
@@ -127,16 +130,22 @@ impl<'b> TxBuilder<'b> {
     }
 
     pub fn add_output(&mut self, output: impl Into<TxOutput<'b>>) {
-        self.outputs.push(TxBuilderOutput::KnownValue(output.into()));
+        self.outputs
+            .push(TxBuilderOutput::KnownValue(output.into()));
         self.output_redeem_scripts.push(None);
     }
 
     pub fn add_p2sh_output(&mut self, value: u64, redeem_script: Script<'b>) {
-        let lock_script = Script::new(p2sh_script(&Address::from_hash(
-            Prefix::default(),
-            AddressType::P2SH,
-            Hash160::digest(&serialize_ops(&redeem_script.ops()).unwrap()),
-        )).ops().into_owned().into());
+        let lock_script = Script::new(
+            p2sh_script(&Address::from_hash(
+                Prefix::default(),
+                AddressType::P2SH,
+                Hash160::digest(&serialize_ops(&redeem_script.ops()).unwrap()),
+            ))
+            .ops()
+            .into_owned()
+            .into(),
+        );
         self.outputs.push(TxBuilderOutput::KnownValue(TxOutput {
             value,
             script: lock_script,
@@ -144,7 +153,7 @@ impl<'b> TxBuilder<'b> {
         self.output_redeem_scripts.push(Some(redeem_script));
     }
 
-    pub fn add_outputs(&mut self, outputs: impl IntoIterator<Item=impl Into<TxOutput<'b>>>) {
+    pub fn add_outputs(&mut self, outputs: impl IntoIterator<Item = impl Into<TxOutput<'b>>>) {
         for output in outputs {
             self.add_output(output);
         }
@@ -159,7 +168,11 @@ impl<'b> TxBuilder<'b> {
         script: Script<'b>,
     ) {
         self.outputs.push(TxBuilderOutput::Leftover {
-            fee_per_kb, lower_bound, upper_bound, script, precedence
+            fee_per_kb,
+            lower_bound,
+            upper_bound,
+            script,
+            precedence,
         });
         self.output_redeem_scripts.push(None);
     }
@@ -196,47 +209,72 @@ impl<'b> TxBuilder<'b> {
             .len()
     }
 
-    fn make_outputs(&self, leftover_amounts: &HashMap<usize, u64>) -> (Vec<TxOutput<'static>>, Vec<Option<Script<'static>>>) {
+    fn make_outputs(
+        &self,
+        leftover_amounts: &HashMap<usize, u64>,
+    ) -> (Vec<TxOutput<'static>>, Vec<Option<Script<'static>>>) {
         let mut outputs = Vec::new();
         let mut output_redeem_scripts = Vec::new();
         for (idx, output) in self.outputs.iter().enumerate() {
             match output {
                 TxBuilderOutput::KnownValue(output) => outputs.push(output.to_owned_output()),
-                TxBuilderOutput::Leftover {script, ..} => outputs.push(TxOutput {
+                TxBuilderOutput::Leftover { script, .. } => outputs.push(TxOutput {
                     value: match leftover_amounts.get(&idx) {
                         Some(&value) => value,
                         None => continue,
                     },
                     script: script.to_owned_script(),
-                })
+                }),
             }
-            output_redeem_scripts.push(self.output_redeem_scripts[idx].as_ref().map(|script| script.to_owned_script()));
+            output_redeem_scripts.push(
+                self.output_redeem_scripts[idx]
+                    .as_ref()
+                    .map(|script| script.to_owned_script()),
+            );
         }
         (outputs, output_redeem_scripts)
     }
 
     pub fn build(self) -> Result<UnsignedTx<'b>> {
-        let known_output_amount = self.outputs.iter()
+        let known_output_amount = self
+            .outputs
+            .iter()
             .map(|output| output.get_value())
             .sum::<u64>();
-        let total_input_amount = self.inputs.iter()
+        let total_input_amount = self
+            .inputs
+            .iter()
             .map(|input| input.input.value)
             .sum::<u64>();
         if known_output_amount > total_input_amount {
-            return Err(ErrorKind::InsufficientInputAmount(known_output_amount - total_input_amount).into())
+            return Err(ErrorKind::InsufficientInputAmount(
+                known_output_amount - total_input_amount,
+            )
+            .into());
         }
         let mut total_leftover = total_input_amount - known_output_amount;
         let mut leftover_amounts = HashMap::new();
-        let mut leftover_precedence = self.outputs.iter().enumerate().filter_map(
-            |(idx, output)| match output {
+        let mut leftover_precedence = self
+            .outputs
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, output)| match output {
                 TxBuilderOutput::Leftover { precedence, .. } => Some((idx, precedence)),
                 _ => None,
-            }
-        ).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
         leftover_precedence.sort_by(|(_, a), (_, b)| a.cmp(b));
         for (idx, _) in leftover_precedence {
-            if let TxBuilderOutput::Leftover { fee_per_kb, lower_bound, upper_bound, .. } = self.outputs[idx] {
-                if total_leftover <= lower_bound { continue; }
+            if let TxBuilderOutput::Leftover {
+                fee_per_kb,
+                lower_bound,
+                upper_bound,
+                ..
+            } = self.outputs[idx]
+            {
+                if total_leftover <= lower_bound {
+                    continue;
+                }
                 let new_size = self.estimate_size(self.make_outputs(&leftover_amounts).0) as u64;
                 let fee = new_size * fee_per_kb / 1000;
                 if fee <= total_leftover {
@@ -253,18 +291,14 @@ impl<'b> TxBuilder<'b> {
             }
         }
         let (outputs, output_redeem_scripts) = self.make_outputs(&leftover_amounts);
-        Ok(UnsignedTx::new(
-            outputs,
-            output_redeem_scripts,
-            self,
-        ))
+        Ok(UnsignedTx::new(outputs, output_redeem_scripts, self))
     }
 }
 
 impl<'b> TxBuilderOutput<'b> {
     fn get_value(&self) -> u64 {
         match self {
-            TxBuilderOutput::Leftover {..} => 0,
+            TxBuilderOutput::Leftover { .. } => 0,
             TxBuilderOutput::KnownValue(output) => output.value,
         }
     }
@@ -307,20 +341,39 @@ impl ToPreimages for UnsignedTx<'_> {
 }
 
 impl<'b> UnsignedTx<'b> {
-    pub fn new(outputs: Vec<TxOutput<'b>>, output_redeem_scripts: Vec<Option<Script<'b>>>, builder: TxBuilder<'b>) -> Self {
-        UnsignedTx { builder, output_redeem_scripts, outputs }
+    pub fn new(
+        outputs: Vec<TxOutput<'b>>,
+        output_redeem_scripts: Vec<Option<Script<'b>>>,
+        builder: TxBuilder<'b>,
+    ) -> Self {
+        UnsignedTx {
+            builder,
+            output_redeem_scripts,
+            outputs,
+        }
     }
 
-    pub fn complete_tx(self, preimages: Vec<Vec<TxPreimage<'b>>>, sigs: Vec<Vec<ByteArray<'static>>>) -> UnhashedTx<'b> {
-        let inputs = self.builder.inputs.iter()
+    pub fn complete_tx(
+        self,
+        preimages: Vec<Vec<TxPreimage<'b>>>,
+        sigs: Vec<Vec<ByteArray<'static>>>,
+    ) -> UnhashedTx<'b> {
+        let inputs = self
+            .builder
+            .inputs
+            .iter()
             .zip(preimages)
             .zip(sigs)
-            .map(|((input, preimage), sigs)| {
-                TxInput {
-                    prev_out: input.input.prev_out.clone(),
-                    script: (input.func_script)(&preimage, &self.builder, sigs, &Script::new(input.lock_script.ops()), &self.outputs),
-                    sequence: input.input.sequence,
-                }
+            .map(|((input, preimage), sigs)| TxInput {
+                prev_out: input.input.prev_out.clone(),
+                script: (input.func_script)(
+                    &preimage,
+                    &self.builder,
+                    sigs,
+                    &Script::new(input.lock_script.ops()),
+                    &self.outputs,
+                ),
+                sequence: input.input.sequence,
             })
             .collect();
         UnhashedTx {

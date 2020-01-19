@@ -1,6 +1,9 @@
-use crate::{TxOutpoint, Script, Sha256d, Hashed, encode_bitcoin_code, ByteArray, ops::Function, ToPreimages, serialize_ops, ops::Ops};
-use serde_derive::{Deserialize, Serialize};
+use crate::{
+    encode_bitcoin_code, ops::Function, ops::Ops, serialize_ops, ByteArray, Hashed, Script,
+    Sha256d, ToPreimages, TxOutpoint,
+};
 use bitflags::bitflags;
+use serde_derive::{Deserialize, Serialize};
 
 bitflags! {
     #[derive(Deserialize, Serialize)]
@@ -36,7 +39,8 @@ impl<'a> TxPreimage<'a> {
             for input_idx in 0..tx.num_inputs() {
                 outpoints_serialized = outpoints_serialized.concat(
                     encode_bitcoin_code(tx.input_outpoint_at(input_idx))
-                        .expect("Cannot encode outpoint").into()
+                        .expect("Cannot encode outpoint")
+                        .into(),
                 );
             }
             Sha256d::digest_byte_array(outpoints_serialized)
@@ -46,7 +50,8 @@ impl<'a> TxPreimage<'a> {
             for input_idx in 0..tx.num_inputs() {
                 sequences_serialized = sequences_serialized.concat(
                     encode_bitcoin_code(&tx.input_sequence_at(input_idx))
-                        .expect("Cannot encode sequence").into()
+                        .expect("Cannot encode sequence")
+                        .into(),
                 );
             }
             Sha256d::digest_byte_array(sequences_serialized)
@@ -56,13 +61,16 @@ impl<'a> TxPreimage<'a> {
             for output_idx in 0..tx.num_outputs() {
                 let mut byte_array = ByteArray::new(
                     encode_bitcoin_code(tx.output_at(output_idx))
-                        .expect("Cannot encode output").into()
+                        .expect("Cannot encode output")
+                        .into(),
                 );
                 if let Some(redeem_script) = tx.output_redeem_script_at(output_idx) {
-                    byte_array.preimage = Some(vec![
-                        serialize_ops(&redeem_script.ops())
-                            .expect("Cannot encode redeem script").into(),
-                    ].into());
+                    byte_array.preimage = Some(
+                        vec![serialize_ops(&redeem_script.ops())
+                            .expect("Cannot encode redeem script")
+                            .into()]
+                        .into(),
+                    );
                     byte_array.function = Function::Hash160;
                 }
                 outputs_serialized = outputs_serialized.concat(byte_array);
@@ -80,37 +88,42 @@ impl<'a> TxPreimage<'a> {
                     ByteArray::from_slice(&[0; 32])
                 };
                 let masked_flags = sighash_flags & SigHashFlags::MASK;
-                let hash_sequence = 
-                    if !sighash_flags.contains(SigHashFlags::ANYONECANPAY) &&
-                        masked_flags != SigHashFlags::SINGLE &&
-                        masked_flags != SigHashFlags::NONE {
+                let hash_sequence = if !sighash_flags.contains(SigHashFlags::ANYONECANPAY)
+                    && masked_flags != SigHashFlags::SINGLE
+                    && masked_flags != SigHashFlags::NONE
+                {
                     hash_all_sequences.clone()
                 } else {
                     ByteArray::from_slice(&[0; 32])
                 };
-                let hash_outputs = if masked_flags != SigHashFlags::SINGLE && masked_flags != SigHashFlags::NONE {
-                    hash_all_outputs.clone()
-                } else if masked_flags == SigHashFlags::SINGLE && input_idx < tx.num_outputs() {
-                    Sha256d::digest_byte_array(encode_bitcoin_code(tx.output_at(input_idx)).expect("Cannot encode output").into())
-                } else {
-                    ByteArray::from_slice(&[0; 32])
-                };
-                preimages.push(
-                    TxPreimage {
-                        version: tx.version(),
-                        hash_prevouts,
-                        hash_sequence,
-                        outpoint: tx.input_outpoint_at(input_idx).clone(),
-                        script_code: encode_bitcoin_code(
-                            &tx.input_lock_script_at(input_idx).to_script_code_first()
-                        ).unwrap().into(),
-                        value: tx.input_value_at(input_idx),
-                        sequence: tx.input_sequence_at(input_idx),
-                        hash_outputs,
-                        lock_time: tx.lock_time(),
-                        sighash_flags,
-                    }
-                );
+                let hash_outputs =
+                    if masked_flags != SigHashFlags::SINGLE && masked_flags != SigHashFlags::NONE {
+                        hash_all_outputs.clone()
+                    } else if masked_flags == SigHashFlags::SINGLE && input_idx < tx.num_outputs() {
+                        Sha256d::digest_byte_array(
+                            encode_bitcoin_code(tx.output_at(input_idx))
+                                .expect("Cannot encode output")
+                                .into(),
+                        )
+                    } else {
+                        ByteArray::from_slice(&[0; 32])
+                    };
+                preimages.push(TxPreimage {
+                    version: tx.version(),
+                    hash_prevouts,
+                    hash_sequence,
+                    outpoint: tx.input_outpoint_at(input_idx).clone(),
+                    script_code: encode_bitcoin_code(
+                        &tx.input_lock_script_at(input_idx).to_script_code_first(),
+                    )
+                    .unwrap()
+                    .into(),
+                    value: tx.input_value_at(input_idx),
+                    sequence: tx.input_sequence_at(input_idx),
+                    hash_outputs,
+                    lock_time: tx.lock_time(),
+                    sighash_flags,
+                });
             }
             inputs_preimages.push(preimages);
         }
