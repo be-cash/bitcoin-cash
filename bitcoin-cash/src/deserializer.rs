@@ -1,5 +1,5 @@
 use crate::encoding_utils::read_var_int;
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::{Error, ErrorKind, Result, BitcoinCodeError};
 use byteorder::{LittleEndian, ReadBytesExt};
 use serde::de::Visitor;
 use std::io::{self, Read};
@@ -16,22 +16,6 @@ struct Deserializer<'de> {
 struct Access<'a, 'de: 'a> {
     de: &'a mut Deserializer<'de>,
     len: usize,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum BitcoinCodeError {
-    DeserializeAnyNotSupported,
-    InvalidBoolEncoding(u8),
-    LeftoverBytes,
-    DataTypeNotSupported(&'static str),
-    MethodNotSupported(&'static str),
-    SequenceMustHaveLength,
-}
-
-impl BitcoinCodeError {
-    pub fn into_err<T>(self) -> Result<T> {
-        Err(ErrorKind::BitcoinCodeDeserialize(self).into())
-    }
 }
 
 impl serde::de::Error for Error {
@@ -262,7 +246,7 @@ where
 mod tests {
     use super::decode_bitcoin_code;
     use crate::error::Result;
-    use crate::serialize::encode_bitcoin_code;
+    use crate::serializer::encode_bitcoin_code;
     use crate::{Hashed, Sha256d};
     use serde_derive::{Deserialize, Serialize};
 

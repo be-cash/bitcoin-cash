@@ -1,6 +1,5 @@
-use crate::deserialize::BitcoinCodeError;
 use crate::encoding_utils::write_var_int;
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::{Error, ErrorKind, Result, BitcoinCodeError};
 use byteorder::{LittleEndian, WriteBytesExt};
 use std::io;
 
@@ -347,5 +346,17 @@ where
     let mut vec = Vec::new();
     let mut serializer = Serializer { writer: &mut vec };
     value.serialize(&mut serializer)?;
+    Ok(vec)
+}
+
+pub fn encode_bitcoin_code_all<'a, T: 'a>(values: impl IntoIterator<Item=&'a T>) -> Result<Vec<u8>>
+where
+    T: serde::ser::Serialize,
+{
+    let mut vec = Vec::new();
+    let mut serializer = Serializer { writer: &mut vec };
+    for value in values {
+        value.serialize(&mut serializer)?;
+    }
     Ok(vec)
 }
