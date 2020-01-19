@@ -1,4 +1,4 @@
-use crate::error::{ErrorKind, Result};
+use crate::{error::{ErrorKind, Result}, ByteArray, ops::Function};
 
 use serde_derive::{Deserialize, Serialize};
 use sha1::Digest;
@@ -8,14 +8,25 @@ pub trait Hashed: Display + Debug + Sized + Eq + PartialEq {
     fn digest(data: &[u8]) -> Self;
     fn as_slice(&self) -> &[u8];
     fn from_slice(hash: &[u8]) -> Result<Self>;
+    fn function() -> Function;
+    fn digest_byte_array<'a>(byte_array: ByteArray<'a>) -> ByteArray<'a> {
+        let hashed = Self::digest(&byte_array.data);
+        byte_array.apply_function(hashed.as_slice().to_vec().into(), Self::function())
+    }
     fn from_hex_le(s: &str) -> Result<Self> {
         Self::from_slice(&hex::decode(s)?.iter().cloned().rev().collect::<Vec<_>>())
     }
     fn from_hex_be(s: &str) -> Result<Self> {
         Self::from_slice(&hex::decode(s)?)
     }
+    fn from_slice_le(hash_le: &[u8]) -> Result<Self> {
+        Self::from_slice(&hash_le.iter().cloned().rev().collect::<Vec<_>>())
+    }
+    fn to_vec_le(&self) -> Vec<u8> {
+        self.as_slice().iter().cloned().rev().collect()
+    }
     fn to_hex_le(&self) -> String {
-        hex::encode(self.as_slice().iter().cloned().rev().collect::<Vec<_>>())
+        hex::encode(self.to_vec_le())
     }
     fn to_hex_be(&self) -> String {
         hex::encode(self.as_slice())
@@ -112,6 +123,9 @@ impl Display for Hash160 {
 }
 
 impl Hashed for Sha1 {
+    fn function() -> Function {
+        Function::Sha1
+    }
     fn digest(data: &[u8]) -> Self {
         let mut hash = [0; 20];
         hash.copy_from_slice(sha1::Sha1::digest(data).as_slice());
@@ -122,7 +136,7 @@ impl Hashed for Sha1 {
     }
     fn from_slice(hash: &[u8]) -> Result<Self> {
         if hash.len() != 20 {
-            return Err(ErrorKind::InvalidHashSize((20, hash.len())).into());
+            return Err(ErrorKind::InvalidSize((20, hash.len())).into());
         }
         let mut hash_arr = [0; 20];
         hash_arr.copy_from_slice(hash);
@@ -131,6 +145,9 @@ impl Hashed for Sha1 {
 }
 
 impl Hashed for Ripemd160 {
+    fn function() -> Function {
+        Function::Ripemd160
+    }
     fn digest(data: &[u8]) -> Self {
         let mut hash = [0; 20];
         hash.copy_from_slice(ripemd160::Ripemd160::digest(data).as_slice());
@@ -141,7 +158,7 @@ impl Hashed for Ripemd160 {
     }
     fn from_slice(hash: &[u8]) -> Result<Self> {
         if hash.len() != 20 {
-            return Err(ErrorKind::InvalidHashSize((20, hash.len())).into());
+            return Err(ErrorKind::InvalidSize((20, hash.len())).into());
         }
         let mut hash_arr = [0; 20];
         hash_arr.copy_from_slice(hash);
@@ -150,6 +167,9 @@ impl Hashed for Ripemd160 {
 }
 
 impl Hashed for Sha256 {
+    fn function() -> Function {
+        Function::Sha256
+    }
     fn digest(data: &[u8]) -> Self {
         let mut hash = [0; 32];
         hash.copy_from_slice(sha2::Sha256::digest(data).as_slice());
@@ -160,7 +180,7 @@ impl Hashed for Sha256 {
     }
     fn from_slice(hash: &[u8]) -> Result<Self> {
         if hash.len() != 32 {
-            return Err(ErrorKind::InvalidHashSize((32, hash.len())).into());
+            return Err(ErrorKind::InvalidSize((32, hash.len())).into());
         }
         let mut hash_arr = [0; 32];
         hash_arr.copy_from_slice(hash);
@@ -169,6 +189,9 @@ impl Hashed for Sha256 {
 }
 
 impl Hashed for Sha256d {
+    fn function() -> Function {
+        Function::Hash256
+    }
     fn digest(data: &[u8]) -> Self {
         let mut hash = [0; 32];
         hash.copy_from_slice(
@@ -181,7 +204,7 @@ impl Hashed for Sha256d {
     }
     fn from_slice(hash: &[u8]) -> Result<Self> {
         if hash.len() != 32 {
-            return Err(ErrorKind::InvalidHashSize((32, hash.len())).into());
+            return Err(ErrorKind::InvalidSize((32, hash.len())).into());
         }
         let mut hash_arr = [0; 32];
         hash_arr.copy_from_slice(hash);
@@ -190,6 +213,9 @@ impl Hashed for Sha256d {
 }
 
 impl Hashed for Hash160 {
+    fn function() -> Function {
+        Function::Hash160
+    }
     fn digest(data: &[u8]) -> Self {
         let mut hash = [0; 20];
         hash.copy_from_slice(
@@ -202,7 +228,7 @@ impl Hashed for Hash160 {
     }
     fn from_slice(hash: &[u8]) -> Result<Self> {
         if hash.len() != 20 {
-            return Err(ErrorKind::InvalidHashSize((20, hash.len())).into());
+            return Err(ErrorKind::InvalidSize((20, hash.len())).into());
         }
         let mut hash_arr = [0; 20];
         hash_arr.copy_from_slice(hash);
@@ -221,7 +247,7 @@ mod tests {
         assert_eq!(Sha1::digest(b"").as_slice(), EMPTY_SHA1);
         assert_eq!(Sha1::digest(b""), Sha1::from_slice(&EMPTY_SHA1)?);
         assert_eq!(
-            ErrorKind::InvalidHashSize((20, 2)).to_string(),
+            ErrorKind::InvalidSize((20, 2)).to_string(),
             Sha1::from_slice(&[0, 0]).unwrap_err().kind().to_string(),
         );
         Ok(())
@@ -252,7 +278,7 @@ mod tests {
             Ripemd160::from_slice(&EMPTY_RIPEMD)?
         );
         assert_eq!(
-            ErrorKind::InvalidHashSize((20, 2)).to_string(),
+            ErrorKind::InvalidSize((20, 2)).to_string(),
             Ripemd160::from_slice(&[0, 0])
                 .unwrap_err()
                 .kind()
@@ -290,7 +316,7 @@ mod tests {
         assert_eq!(Sha256::digest(b"").as_slice(), EMPTY_SHA256);
         assert_eq!(Sha256::digest(b""), Sha256::from_slice(&EMPTY_SHA256)?);
         assert_eq!(
-            ErrorKind::InvalidHashSize((32, 2)).to_string(),
+            ErrorKind::InvalidSize((32, 2)).to_string(),
             Sha256::from_slice(&[0, 0]).unwrap_err().kind().to_string(),
         );
         Ok(())
@@ -321,7 +347,7 @@ mod tests {
         assert_eq!(Sha256d::digest(b"").as_slice(), EMPTY_SHA256D);
         assert_eq!(Sha256d::digest(b""), Sha256d::from_slice(&EMPTY_SHA256D)?);
         assert_eq!(
-            ErrorKind::InvalidHashSize((32, 2)).to_string(),
+            ErrorKind::InvalidSize((32, 2)).to_string(),
             Sha256d::from_slice(&[0, 0]).unwrap_err().kind().to_string(),
         );
         Ok(())
@@ -354,7 +380,7 @@ mod tests {
         assert_eq!(Hash160::digest(b"").as_slice(), EMPTY_HASH160);
         assert_eq!(Hash160::digest(b""), Hash160::from_slice(&EMPTY_HASH160)?);
         assert_eq!(
-            ErrorKind::InvalidHashSize((20, 2)).to_string(),
+            ErrorKind::InvalidSize((20, 2)).to_string(),
             Hash160::from_slice(&[0, 0]).unwrap_err().kind().to_string(),
         );
         Ok(())
