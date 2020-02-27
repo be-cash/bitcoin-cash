@@ -20,28 +20,63 @@ pub enum Function {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ByteArray<'a> {
     pub data: Cow<'a, [u8]>,
+    pub name: Option<Cow<'static, str>>,
     pub function: Function,
     pub preimage: Option<Vec<ByteArray<'a>>>,
 }
 
+impl Function {
+    pub fn keep_intact(&self) -> bool {
+        use Function::*;
+        match self {
+            Plain | Num2Bin | EcdsaSign | SchnorrSign | ToDataSig => false,
+            _ => true,
+        }
+    }
+}
+
 impl<'a> ByteArray<'a> {
-    pub fn new(data: Cow<'a, [u8]>) -> Self {
+    pub fn new(name: impl Into<Cow<'static, str>>, data: impl Into<Cow<'a, [u8]>>) -> Self {
         ByteArray {
-            data,
+            data: data.into(),
+            name: Some(name.into()),
             function: Function::Plain,
             preimage: None,
         }
     }
 
-    pub fn from_slice(slice: &'a [u8]) -> Self {
+    pub fn new_unnamed(data: impl Into<Cow<'a, [u8]>>) -> Self {
+        ByteArray {
+            data: data.into(),
+            name: None,
+            function: Function::Plain,
+            preimage: None,
+        }
+    }
+
+    pub fn from_slice(name: impl Into<Cow<'static, str>>, slice: &'a [u8]) -> Self {
         ByteArray {
             data: slice.into(),
+            name: Some(name.into()),
             function: Function::Plain,
             preimage: None,
         }
     }
 
-    pub fn concat(self, other: ByteArray<'a>) -> ByteArray<'a> {
+    pub fn from_slice_unnamed(slice: &'a [u8]) -> Self {
+        ByteArray {
+            data: slice.into(),
+            name: None,
+            function: Function::Plain,
+            preimage: None,
+        }
+    }
+
+    pub fn concat_named_option(
+        self,
+        other: ByteArray<'a>,
+        name: Option<Cow<'static, str>>,
+    ) -> ByteArray<'a> {
         let mut new_data = Vec::with_capacity(self.data.len() + other.data.len());
         new_data.extend_from_slice(&self.data);
         new_data.extend_from_slice(&other.data);
@@ -58,15 +93,29 @@ impl<'a> ByteArray<'a> {
             });
             return ByteArray {
                 data: new_data.into(),
+                name,
                 function: Function::Plain,
                 preimage: Some(new_preimage.into()),
             };
         }
         ByteArray {
             data: new_data.into(),
+            name,
             function: Function::Plain,
             preimage: Some(vec![self, other].into()),
         }
+    }
+
+    pub fn concat(self, other: ByteArray<'a>) -> ByteArray<'a> {
+        self.concat_named_option(other, None)
+    }
+
+    pub fn concat_named(
+        self,
+        name: impl Into<Cow<'static, str>>,
+        other: ByteArray<'a>,
+    ) -> ByteArray<'a> {
+        self.concat_named_option(other, Some(name.into()))
     }
 
     pub fn split(self, at: usize) -> Result<(ByteArray<'a>, ByteArray<'a>), String> {
@@ -82,7 +131,7 @@ impl<'a> ByteArray<'a> {
         let other = data.split_off(at);
         let mut function = Function::Plain;
         let (left_preimage, right_preimage) = match self.preimage {
-            Some(preimage) if self.function == Function::Plain => {
+            Some(preimage) if !self.function.keep_intact() => {
                 let mut left_preimage = Vec::new();
                 let mut right_preimage = Vec::new();
                 let mut is_left = true;
@@ -95,7 +144,7 @@ impl<'a> ByteArray<'a> {
                     if len + part_len > at && is_left {
                         let part_function = part.function;
                         let (mut sub_left, mut sub_right) = part.split(at - len)?;
-                        if part_function != Function::Plain {
+                        if part_function.keep_intact() {
                             sub_left.function = Function::UnexpectedSplit;
                             sub_right.function = Function::UnexpectedSplit;
                         }
@@ -113,35 +162,50 @@ impl<'a> ByteArray<'a> {
                 }
                 (Some(left_preimage), Some(right_preimage))
             }
-            _ => {
+            Some(_) => {
                 function = Function::UnexpectedSplit;
                 (None, None)
             }
+            None => (None, None)
         };
         Ok((
             ByteArray {
                 data: data.into(),
+                name: None,
                 function: function,
                 preimage: left_preimage.map(Into::into),
             },
             ByteArray {
                 data: other.into(),
+                name: None,
                 function: function,
                 preimage: right_preimage.map(Into::into),
             },
         ))
     }
 
-    pub fn apply_function(self, data: Cow<'a, [u8]>, function: Function) -> ByteArray<'a> {
+    pub fn apply_function(
+        self,
+        data: impl Into<Cow<'a, [u8]>>,
+        function: Function,
+    ) -> ByteArray<'a> {
         ByteArray {
-            data,
+            data: data.into(),
+            name: None,
             function,
-            preimage: if self.preimage.is_some() {
-                self.preimage
-            } else {
-                Some(vec![self].into())
-            },
+            preimage: Some(vec![self].into()),
         }
+    }
+
+    pub fn named(self, name: impl Into<Cow<'static, str>>) -> ByteArray<'a> {
+        ByteArray {
+            name: Some(name.into()),
+            ..self
+        }
+    }
+
+    pub fn named_option(self, name: Option<Cow<'static, str>>) -> ByteArray<'a> {
+        ByteArray { name, ..self }
     }
 
     pub fn from_int(int: Integer, n_bytes: Integer) -> Result<Self, String> {
@@ -169,6 +233,7 @@ impl<'a> ByteArray<'a> {
         }
         Ok(ByteArray {
             data: bytes.into(),
+            name: None,
             function: Function::Num2Bin,
             preimage: None,
         })
@@ -177,6 +242,7 @@ impl<'a> ByteArray<'a> {
     pub fn to_owned_array(&self) -> ByteArray<'static> {
         ByteArray {
             data: self.data.clone().into_owned().into(),
+            name: self.name.clone(),
             function: self.function,
             preimage: self.preimage.as_ref().map(|preimage| {
                 preimage
@@ -191,19 +257,19 @@ impl<'a> ByteArray<'a> {
 
 impl Default for ByteArray<'_> {
     fn default() -> Self {
-        ByteArray::from_slice(&[])
+        ByteArray::from_slice_unnamed(&[])
     }
 }
 
 impl From<Vec<u8>> for ByteArray<'static> {
     fn from(vec: Vec<u8>) -> Self {
-        ByteArray::new(vec.into())
+        ByteArray::new_unnamed(vec)
     }
 }
 
 impl<'a> From<Cow<'a, [u8]>> for ByteArray<'a> {
     fn from(cow: Cow<'a, [u8]>) -> Self {
-        ByteArray::new(cow)
+        ByteArray::new_unnamed(cow)
     }
 }
 
@@ -214,10 +280,10 @@ mod tests {
 
     #[test]
     fn test_cat() {
-        let a = ByteArray::from_slice(b"A");
-        let b = ByteArray::from_slice(b"B");
-        let c = ByteArray::from_slice(b"C");
-        let d = ByteArray::from_slice(b"D");
+        let a = ByteArray::from_slice_unnamed(b"A");
+        let b = ByteArray::from_slice_unnamed(b"B");
+        let c = ByteArray::from_slice_unnamed(b"C");
+        let d = ByteArray::from_slice_unnamed(b"D");
         let ab = a.concat(b);
         {
             assert_eq!(ab.data.as_ref(), b"AB");
@@ -245,12 +311,12 @@ mod tests {
 
     #[test]
     fn test_hash() {
-        let a = ByteArray::from_slice(b"A");
-        let b = ByteArray::from_slice(b"B");
-        let c = ByteArray::from_slice(b"C");
+        let a = ByteArray::from_slice_unnamed(b"A");
+        let b = ByteArray::from_slice_unnamed(b"B");
+        let c = ByteArray::from_slice_unnamed(b"C");
         let cat = a.concat(b).concat(c);
         let hash = sha2::Sha256::digest(&cat.data);
-        let hashed = cat.apply_function(hash.as_ref().into(), Function::Sha256);
+        let hashed = cat.apply_function(hash.as_ref(), Function::Sha256);
         let preimage = hashed.preimage.as_ref().expect("No preimage");
         assert_eq!(hashed.data.as_ref(), hash.as_ref());
         assert_eq!(preimage[0].data.as_ref(), b"A");
@@ -263,16 +329,16 @@ mod tests {
 
     #[test]
     fn test_hash_nested() {
-        let a = ByteArray::from_slice(b"A");
-        let b = ByteArray::from_slice(b"B");
+        let a = ByteArray::from_slice_unnamed(b"A");
+        let b = ByteArray::from_slice_unnamed(b"B");
         let inner = a.concat(b);
         let inner_hash = sha2::Sha256::digest(&inner.data);
-        let inner_hashed = inner.apply_function(inner_hash.as_ref().into(), Function::Sha256);
-        let c = ByteArray::from_slice(b"C");
-        let d = ByteArray::from_slice(b"D");
+        let inner_hashed = inner.apply_function(inner_hash.as_ref(), Function::Sha256);
+        let c = ByteArray::from_slice_unnamed(b"C");
+        let d = ByteArray::from_slice_unnamed(b"D");
         let outer = c.concat(inner_hashed).concat(d);
         let outer_hash = sha2::Sha256::digest(&outer.data);
-        let outer_hashed = outer.apply_function(outer_hash.as_ref().into(), Function::Sha256);
+        let outer_hashed = outer.apply_function(outer_hash.as_ref(), Function::Sha256);
         assert_eq!(outer_hashed.data.as_ref(), outer_hash.as_ref());
         let outer_preimage = outer_hashed.preimage.as_ref().expect("No preimage");
         assert_eq!(outer_preimage.len(), 3);
@@ -293,8 +359,8 @@ mod tests {
 
     #[test]
     fn test_split_a_b() {
-        let a = ByteArray::from_slice(b"A");
-        let b = ByteArray::from_slice(b"B");
+        let a = ByteArray::from_slice_unnamed(b"A");
+        let b = ByteArray::from_slice_unnamed(b"B");
         let cat = a.concat(b);
         let (left, right) = cat.split(1).unwrap();
         let left_preimage = left.preimage.as_ref().expect("No preimage");
@@ -311,13 +377,13 @@ mod tests {
 
     #[test]
     fn test_split_nested() {
-        let a = ByteArray::from_slice(b"A");
-        let b = ByteArray::from_slice(b"B");
+        let a = ByteArray::from_slice_unnamed(b"A");
+        let b = ByteArray::from_slice_unnamed(b"B");
         let inner = a.concat(b);
         let inner_hash = sha2::Sha256::digest(&inner.data);
-        let inner_hashed = inner.apply_function(inner_hash.as_ref().into(), Function::Sha256);
-        let c = ByteArray::from_slice(b"C");
-        let d = ByteArray::from_slice(b"D");
+        let inner_hashed = inner.apply_function(inner_hash.as_ref(), Function::Sha256);
+        let c = ByteArray::from_slice_unnamed(b"C");
+        let d = ByteArray::from_slice_unnamed(b"D");
         let outer = c.concat(inner_hashed.clone()).concat(d);
 
         // test 1, split neatly at 1
