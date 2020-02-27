@@ -516,8 +516,8 @@ impl OpcodeType {
                 &[Observed, Observed, Added, Added],
             ),
             OP_3DUP => o(
-                &[T],
-                &[],
+                &[T, T, T],
+                &[T, T, T, T, T, T],
                 &[0, 1, 2, 0, 1, 2],
                 &[Observed, Observed, Observed, Added, Added, Added],
             ),
@@ -528,8 +528,8 @@ impl OpcodeType {
                 &[
                     Observed,
                     Observed,
-                    MovedIndirectly,
-                    MovedIndirectly,
+                    Untouched,
+                    Untouched,
                     Added,
                     Added,
                 ],
