@@ -1,7 +1,7 @@
 use crate::ir;
 use bitcoin_cash_script::{Integer, OpcodeType};
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, quote_spanned};
+use quote::{quote, quote_spanned, ToTokens};
 
 #[derive(Clone)]
 pub struct StackItem {
@@ -165,13 +165,13 @@ impl GenerateScript {
                 if stack_after_then.len() != self.stack.len() {
                     let then_names = stack_after_then
                         .iter()
-                        .map(|item| format!("{}", item.ident))
+                        .map(|item| item.name.clone())
                         .collect::<Vec<_>>()
                         .join(", ");
                     let else_names = self
                         .stack
                         .iter()
-                        .map(|item| format!("{}", item.ident))
+                        .map(|item| item.name.clone())
                         .collect::<Vec<_>>()
                         .join(", ");
                     return Err(Error::new(endif_span, format!(
@@ -316,13 +316,7 @@ impl GenerateScript {
                 let stack_item = self.pop(opcode_type, span)?;
                 let item_idx = match stack_item.integer {
                     Some(integer) => integer as usize,
-                    _ => Err(Error::new(
-                        span,
-                        format!(
-                            "{:?} expects an integer literal as top stack item",
-                            opcode_type
-                        ),
-                    ))?,
+                    _ => 0,  // take top stack item if not known statically
                 };
                 if item_idx >= self.stack.len() {
                     Err(Error::new(
@@ -545,9 +539,13 @@ impl GenerateScript {
             }
             "transmute" => {
                 if let Some(
-                    &[ir::OpcodeInput::Ident(ref ident), ir::OpcodeInput::Expr(ref type_expr)],
+                    &[ir::OpcodeInput::Ident(ref ident), ref type_input],
                 ) = opcode.input_names.as_deref()
                 {
+                    let type_expr = match type_input {
+                        ir::OpcodeInput::Expr(type_expr) => type_expr.to_token_stream(),
+                        ir::OpcodeInput::Ident(ident) => ident.to_token_stream(),
+                    };
                     let span = opcode.span;
                     if let Some(&[ref out_ident]) = opcode.output_names.as_deref() {
                         if out_ident != ident {
