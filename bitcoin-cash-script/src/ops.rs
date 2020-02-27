@@ -62,3 +62,9 @@ impl<I: InputScript> Into<TaggedScriptOps> for TaggedScript<I> {
         TaggedScriptOps::new(self.tagged_ops)
     }
 }
+
+impl<I: InputScript> Clone for TaggedScript<I> {
+    fn clone(&self) -> Self {
+        TaggedScript::new(self.tagged_ops().to_vec())
+    }
+} 
