@@ -47,8 +47,8 @@ fn test_catting() {
     assert_eq!(
         script(()).ops().as_ref(),
         &[
-            Op::PushByteArray(ByteArray::from_slice(b"A")),
-            Op::PushByteArray(ByteArray::from_slice(b"B")),
+            Op::PushByteArray(ByteArray::from_slice_unnamed(b"A")),
+            Op::PushByteArray(ByteArray::from_slice_unnamed(b"B")),
             Op::Code(OP_TUCK),
             Op::Code(OP_CAT),
             Op::Code(OP_CAT),
@@ -71,8 +71,8 @@ fn test_inputs() {
         .ops()
         .as_ref(),
         &[
-            Op::PushByteArray(ByteArray::from_slice(b"A")),
-            Op::PushByteArray(ByteArray::from_slice(b"B")),
+            Op::PushByteArray(ByteArray::from_slice_unnamed(b"A")),
+            Op::PushByteArray(ByteArray::from_slice_unnamed(b"B")),
         ],
     );
 }
