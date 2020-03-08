@@ -40,3 +40,24 @@ impl TxOutput<'_> {
         }
     }
 }
+
+impl TxInput<'_> {
+    pub fn to_owned_input(&self) -> TxInput<'static> {
+        TxInput {
+            prev_out: self.prev_out.clone(),
+            script: self.script.to_owned_script(),
+            sequence: self.sequence,
+        }
+    }
+}
+
+impl UnhashedTx<'_> {
+    pub fn to_owned_tx(&self) -> UnhashedTx<'static> {
+        UnhashedTx {
+            version: self.version,
+            inputs: self.inputs.iter().map(TxInput::to_owned_input).collect(),
+            outputs: self.outputs.iter().map(TxOutput::to_owned_output).collect(),
+            lock_time: self.lock_time,
+        }
+    }
+}
