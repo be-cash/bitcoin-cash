@@ -1,0 +1,23 @@
+[package]
+name = "bitcoin-cash-ecc"
+version = "0.1.0"
+authors = ["tobiasruck <ruck.tobias@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bitcoin-cash = {path="../bitcoin-cash"}
+
+[features]
+default = ["c_ecc"]
+rust_ecc = ["libsecp256k1"]
+c_ecc = ["secp256k1"]
+
+[dependencies.libsecp256k1]
+version = "0.3"
+optional = true
+
+[dependencies.secp256k1]
+version = "0.17.2"
+optional = true

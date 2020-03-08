@@ -58,4 +58,10 @@ pub enum ErrorKind {
 
     #[error_chain(custom)]
     InsufficientInputAmount(u64),
+
+    #[error_chain(custom)]
+    InvalidSignatureFormat,
+
+    #[error_chain(custom)]
+    InvalidPubkey,
 }

@@ -2,8 +2,8 @@
 extern crate derive_error_chain;
 
 pub mod address;
-mod crypto;
 pub mod deserializer;
+mod ecc;
 mod encoding_utils;
 pub mod error;
 mod hash;
@@ -16,8 +16,8 @@ mod tx_builder;
 mod tx_preimage;
 
 pub use address::{Address, AddressType, Prefix};
-pub use crypto::*;
 pub use deserializer::decode_bitcoin_code;
+pub use ecc::*;
 pub use hash::*;
 pub use pubkey::*;
 pub use script::*;
