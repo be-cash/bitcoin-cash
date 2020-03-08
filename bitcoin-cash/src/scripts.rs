@@ -1,9 +1,10 @@
 use crate::{
-    ops::{OpcodeType::*, Ops},
+    ops::{Opcode::*, Ops},
     Address, AddressType, ByteArray, Hashed, InputScriptBuilder, Pubkey, Script, SigHashFlags,
     TxBuilder, TxOutput, TxPreimage,
 };
 
+#[derive(Clone)]
 pub struct P2PKHBuilder<'b> {
     pub pubkey: &'b Pubkey,
     pub sig_hash_flags: SigHashFlags,
@@ -58,7 +59,10 @@ impl<'b> InputScriptBuilder for P2PKHBuilder<'b> {
     ) -> Self::Script {
         P2PKHInputs {
             pubkey: self.pubkey.as_slice().to_vec(),
-            sig: sigs.remove(0),
+            sig: sigs.remove(0).concat(ByteArray::new(
+                "sig_hash",
+                vec![self.sig_hash_flags.bits() as u8],
+            )),
         }
     }
     fn is_p2sh(&self) -> bool {
