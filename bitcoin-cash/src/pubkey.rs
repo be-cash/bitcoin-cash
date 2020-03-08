@@ -18,7 +18,7 @@ impl Pubkey {
     }
 
     pub fn as_byte_array(&self) -> ByteArray {
-        ByteArray::from_slice(&self.0)
+        ByteArray::from_slice_unnamed(&self.0)
     }
 }
 
