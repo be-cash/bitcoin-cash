@@ -1,6 +1,5 @@
 use crate::{
-    encode_bitcoin_code, ops::Function, ops::Ops, serialize_ops, ByteArray, Hashed, Script,
-    Sha256d, ToPreimages, TxOutpoint,
+    encode_bitcoin_code, ops::Function, ByteArray, Hashed, Script, Sha256d, ToPreimages, TxOutpoint,
 };
 use bitflags::bitflags;
 use serde_derive::{Deserialize, Serialize};
@@ -66,7 +65,8 @@ impl<'a> TxPreimage<'a> {
                 );
                 if let Some(redeem_script) = tx.output_redeem_script_at(output_idx) {
                     byte_array.preimage = Some(
-                        vec![serialize_ops(&redeem_script.ops())
+                        vec![redeem_script
+                            .serialize()
                             .expect("Cannot encode redeem script")
                             .into()]
                         .into(),

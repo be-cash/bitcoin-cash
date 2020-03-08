@@ -8,6 +8,7 @@ use std::io::Read;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Script<'a> {
     ops: Cow<'a, [Op]>,
+    is_minimal_push: bool,
 }
 
 impl Ops for Script<'_> {
@@ -17,8 +18,22 @@ impl Ops for Script<'_> {
 }
 
 impl<'a> Script<'a> {
-    pub fn new(ops: Cow<'a, [Op]>) -> Self {
-        Script { ops }
+    pub fn new(ops: Cow<'a, [Op]>, is_minimal_push: bool) -> Self {
+        Script {
+            ops,
+            is_minimal_push,
+        }
+    }
+
+    pub fn minimal(ops: Cow<'a, [Op]>) -> Self {
+        Script {
+            ops,
+            is_minimal_push: true,
+        }
+    }
+
+    pub fn serialize(&self) -> Result<Vec<u8>> {
+        serialize_ops(&self.ops, self.is_minimal_push)
     }
 }
 
@@ -43,7 +58,7 @@ impl<'a> Script<'a> {
         } else {
             0
         };
-        Script::new(self.ops[idx..].as_ref().into())
+        Script::new(self.ops[idx..].as_ref().into(), self.is_minimal_push)
     }
 
     pub fn to_script_code_first(&self) -> Script<'_> {
@@ -52,7 +67,10 @@ impl<'a> Script<'a> {
             .iter()
             .position(|op| op == &Op::Code(OpcodeType::OP_CODESEPARATOR))
         {
-            Script::new(self.ops[code_separator_idx + 1..].as_ref().into())
+            Script::new(
+                self.ops[code_separator_idx + 1..].as_ref().into(),
+                self.is_minimal_push,
+            )
         } else {
             self.clone()
         }
@@ -61,13 +79,30 @@ impl<'a> Script<'a> {
     pub fn to_owned_script(&self) -> Script<'static> {
         Script {
             ops: self.ops.clone().into_owned().into(),
+            is_minimal_push: self.is_minimal_push,
         }
     }
 }
 
-fn serialize_push_bytes(vec: &mut Vec<u8>, bytes: &[u8]) -> Result<()> {
+fn serialize_push_bytes(vec: &mut Vec<u8>, bytes: &[u8], is_minimal_push: bool) -> Result<()> {
     use OpcodeType::*;
     match bytes.len() {
+        0 if is_minimal_push => {
+            vec.push(Opcode::OP_0 as u8);
+            return Ok(());
+        }
+        1 if is_minimal_push => {
+            let value = bytes[0];
+            if value <= 16 {
+                vec.push(Opcode::OP_1 as u8 - 1 + value);
+                return Ok(());
+            }
+            if value == 0x81 {
+                vec.push(Opcode::OP_1NEGATE as u8);
+                return Ok(());
+            }
+            vec.push(1);
+        }
         len @ 0x00..=0x4b => vec.push(len as u8),
         len @ 0x4c..=0xff => {
             vec.push(OP_PUSHDATA1 as u8);
@@ -87,7 +122,7 @@ fn serialize_push_bytes(vec: &mut Vec<u8>, bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 
-pub fn serialize_op(vec: &mut Vec<u8>, op: &Op) -> Result<()> {
+pub fn serialize_op(vec: &mut Vec<u8>, op: &Op, is_minimal_push: bool) -> Result<()> {
     use OpcodeType::*;
     match *op {
         Op::Code(opcode) => Ok(vec.push(opcode as u8)),
@@ -101,18 +136,18 @@ pub fn serialize_op(vec: &mut Vec<u8>, op: &Op) -> Result<()> {
                 0 => OP_0 as u8,
                 1..=16 => OP_1 as u8 + int as u8 - 1,
                 -0x8000_0000 => return ScriptSerializeError::InvalidInteger.into_err(),
-                _ => return serialize_push_bytes(vec, &encode_int(int)),
+                _ => return serialize_push_bytes(vec, &encode_int(int), false),
             });
             Ok(())
         }
-        Op::PushByteArray(ref array) => serialize_push_bytes(vec, &array.data),
+        Op::PushByteArray(ref array) => serialize_push_bytes(vec, &array.data, is_minimal_push),
     }
 }
 
-pub fn serialize_ops(ops: &[Op]) -> Result<Vec<u8>> {
+pub fn serialize_ops(ops: &[Op], is_minimal_push: bool) -> Result<Vec<u8>> {
     let mut vec = Vec::new();
     for op in ops {
-        serialize_op(&mut vec, op)?;
+        serialize_op(&mut vec, op, is_minimal_push)?;
     }
     Ok(vec)
 }
@@ -163,7 +198,8 @@ impl<'a> Serialize for Script<'a> {
     fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
         use ser::Error;
         serializer.serialize_bytes(
-            &serialize_ops(&self.ops).map_err(|err| S::Error::custom(err.to_string()))?,
+            &serialize_ops(&self.ops, self.is_minimal_push)
+                .map_err(|err| S::Error::custom(err.to_string()))?,
         )
     }
 }
@@ -191,6 +227,7 @@ impl<'de, 'a> Deserialize<'de> for Script<'a> {
     {
         Ok(Script::new(
             deserializer.deserialize_bytes(ScriptVisitor)?.into(),
+            true, // TODO: add options
         ))
     }
 }

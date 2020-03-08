@@ -3,8 +3,8 @@ use crate::{
     encode_bitcoin_code,
     error::ErrorKind,
     ops::{InputScript, Op, Ops, TaggedScript, TaggedScriptOps},
-    p2sh_script, serialize_ops, Address, AddressType, ByteArray, Hash160, Hashed, Prefix, Script,
-    SigHashFlags, TxInput, TxOutpoint, TxOutput, TxPreimage, UnhashedTx, MAX_SIGNATURE_SIZE,
+    p2sh_script, Address, AddressType, ByteArray, Hash160, Hashed, Prefix, Script, SigHashFlags,
+    TxInput, TxOutpoint, TxOutput, TxPreimage, UnhashedTx, MAX_SIGNATURE_SIZE,
 };
 use std::collections::HashMap;
 
@@ -115,11 +115,9 @@ impl<'b> TxBuilder<'b> {
                 .ops()
                 .into();
             if input_script_builder.is_p2sh() {
-                ops.push(Op::PushByteArray(
-                    serialize_ops(&lock_script.ops()).unwrap().into(),
-                ));
+                ops.push(Op::PushByteArray(lock_script.serialize().unwrap().into()));
             }
-            Script::new(ops.into())
+            Script::minimal(ops.into())
         };
         self.inputs.push(TxBuilderInput {
             input: input.into(),
@@ -136,11 +134,11 @@ impl<'b> TxBuilder<'b> {
     }
 
     pub fn add_p2sh_output(&mut self, value: u64, redeem_script: Script<'b>) {
-        let lock_script = Script::new(
+        let lock_script = Script::minimal(
             p2sh_script(&Address::from_hash(
                 Prefix::default(),
                 AddressType::P2SH,
-                Hash160::digest(&serialize_ops(&redeem_script.ops()).unwrap()),
+                Hash160::digest(&redeem_script.serialize().unwrap()),
             ))
             .ops()
             .into_owned()
@@ -189,9 +187,9 @@ impl<'b> TxBuilder<'b> {
         let mut inputs = Vec::with_capacity(self.inputs.len());
         for input in &self.inputs {
             let n_sigs = input.sig_hash_flags.len();
-            let lock_script = Script::new(input.lock_script.ops());
+            let lock_script = Script::minimal(input.lock_script.ops());
             let preimages = vec![TxPreimage::empty_with_script(&lock_script); n_sigs];
-            let fake_sigs = vec![ByteArray::new([0; MAX_SIGNATURE_SIZE].as_ref().into()); n_sigs];
+            let fake_sigs = vec![ByteArray::new_unnamed([0; MAX_SIGNATURE_SIZE].as_ref()); n_sigs];
             inputs.push(TxInput {
                 prev_out: input.input.prev_out.clone(),
                 script: (input.func_script)(&preimages, self, fake_sigs, &lock_script, &outputs),
@@ -253,6 +251,7 @@ impl<'b> TxBuilder<'b> {
             .into());
         }
         let mut total_leftover = total_input_amount - known_output_amount;
+        println!("total_leftover: {}", total_leftover);
         let mut leftover_amounts = HashMap::new();
         let mut leftover_precedence = self
             .outputs
@@ -275,16 +274,19 @@ impl<'b> TxBuilder<'b> {
                 if total_leftover <= lower_bound {
                     continue;
                 }
+                let max_leftover = total_leftover.min(upper_bound);
+                leftover_amounts.insert(idx, max_leftover);
                 let new_size = self.estimate_size(self.make_outputs(&leftover_amounts).0) as u64;
                 let fee = new_size * fee_per_kb / 1000;
+                println!("fee for idx: {}", fee);
                 if fee <= total_leftover {
                     let leftover = (total_leftover - fee).min(upper_bound);
                     if leftover <= lower_bound {
                         leftover_amounts.remove(&idx);
                         continue;
                     }
-                    total_leftover -= leftover;
                     leftover_amounts.insert(idx, leftover);
+                    total_leftover -= leftover;
                 } else {
                     leftover_amounts.remove(&idx);
                 }
@@ -324,7 +326,7 @@ impl ToPreimages for UnsignedTx<'_> {
         self.builder.inputs[input_idx].input.value
     }
     fn input_lock_script_at(&self, input_idx: usize) -> Script {
-        Script::new(self.builder.inputs[input_idx].lock_script.ops())
+        Script::minimal(self.builder.inputs[input_idx].lock_script.ops())
     }
     fn num_outputs(&self) -> usize {
         self.outputs.len()
@@ -370,7 +372,7 @@ impl<'b> UnsignedTx<'b> {
                     &preimage,
                     &self.builder,
                     sigs,
-                    &Script::new(input.lock_script.ops()),
+                    &Script::minimal(input.lock_script.ops()),
                     &self.outputs,
                 ),
                 sequence: input.input.sequence,

@@ -28,8 +28,8 @@ pub fn p2sh_script(address: &Address, redeem_script: Vec<u8>) {
 impl Into<Script<'static>> for &'_ Address<'_> {
     fn into(self) -> Script<'static> {
         match self.addr_type() {
-            AddressType::P2SH => Script::new(p2sh_script(self).ops().into_owned().into()),
-            AddressType::P2PKH => Script::new(p2pkh_script(self).ops().into_owned().into()),
+            AddressType::P2SH => Script::minimal(p2sh_script(self).ops().into_owned().into()),
+            AddressType::P2PKH => Script::minimal(p2pkh_script(self).ops().into_owned().into()),
         }
     }
 }
@@ -37,8 +37,8 @@ impl Into<Script<'static>> for &'_ Address<'_> {
 impl Into<Script<'static>> for Address<'_> {
     fn into(self) -> Script<'static> {
         match self.addr_type() {
-            AddressType::P2SH => Script::new(p2sh_script(&self).ops().into_owned().into()),
-            AddressType::P2PKH => Script::new(p2pkh_script(&self).ops().into_owned().into()),
+            AddressType::P2SH => Script::minimal(p2sh_script(&self).ops().into_owned().into()),
+            AddressType::P2PKH => Script::minimal(p2pkh_script(&self).ops().into_owned().into()),
         }
     }
 }
