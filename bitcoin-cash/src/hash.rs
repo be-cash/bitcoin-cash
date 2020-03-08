@@ -15,7 +15,7 @@ pub trait Hashed: Display + Debug + Sized + Eq + PartialEq {
     fn function() -> Function;
     fn digest_byte_array<'a>(byte_array: ByteArray<'a>) -> ByteArray<'a> {
         let hashed = Self::digest(&byte_array.data);
-        byte_array.apply_function(hashed.as_slice().to_vec().into(), Self::function())
+        byte_array.apply_function(hashed.as_slice().to_vec(), Self::function())
     }
     fn from_hex_le(s: &str) -> Result<Self> {
         Self::from_slice(&hex::decode(s)?.iter().cloned().rev().collect::<Vec<_>>())
