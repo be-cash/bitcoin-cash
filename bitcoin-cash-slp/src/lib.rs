@@ -1,6 +1,6 @@
 use bitcoin_cash::{
     error,
-    ops::{Op, OpcodeType},
+    ops::{Op, Opcode},
     ByteArray, Hashed, Script, Sha256d, TxOutput,
 };
 
@@ -26,20 +26,24 @@ pub fn slp_send_output(
     output_amounts: &[u64],
 ) -> TxOutput<'static> {
     let mut ops = vec![
-        Op::Code(OpcodeType::OP_RETURN),
-        Op::PushByteArray(ByteArray::from_slice(b"SLP\0")),
-        Op::PushByteArray(vec![slp_token_type as u8].into()),
-        Op::PushByteArray(SlpTxType::SEND.to_string().into_bytes().into()),
-        Op::PushByteArray(token_id.to_vec().into()),
+        Op::Code(Opcode::OP_RETURN),
+        Op::PushByteArray(ByteArray::from_slice("lokad_id", b"SLP\0")),
+        Op::PushByteArray(ByteArray::new("token_type", vec![slp_token_type as u8])),
+        Op::PushByteArray(ByteArray::new(
+            "transaction_type",
+            SlpTxType::SEND.to_string().into_bytes(),
+        )),
+        Op::PushByteArray(ByteArray::new("token_id", token_id.to_vec())),
     ];
-    for &output_amount in output_amounts {
-        ops.push(Op::PushByteArray(
-            output_amount.to_be_bytes().to_vec().into(),
-        ));
+    for (idx, &output_amount) in output_amounts.iter().enumerate() {
+        ops.push(Op::PushByteArray(ByteArray::new(
+            format!("token_output_quantity{}", idx + 1),
+            output_amount.to_be_bytes().to_vec(),
+        )));
     }
     TxOutput {
         value: 0,
-        script: Script::new(ops.into()),
+        script: Script::new(ops.into(), false),
     }
 }
 
@@ -52,6 +56,10 @@ impl std::fmt::Display for SlpTxType {
 impl TokenId {
     pub fn from_slice(token_id: &[u8]) -> error::Result<Self> {
         Ok(TokenId(Sha256d::from_slice_le(token_id)?))
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
+        self.0.as_slice()
     }
 
     pub fn to_vec(&self) -> Vec<u8> {

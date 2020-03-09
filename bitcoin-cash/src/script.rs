@@ -1,5 +1,5 @@
 use crate::error::{Result, ScriptSerializeError};
-use crate::ops::{encoding_utils::encode_int, Op, OpcodeType, Ops};
+use crate::ops::{encoding_utils::encode_int, Op, Opcode, Ops};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
@@ -44,7 +44,7 @@ impl<'a> Script<'a> {
             let mut codesep_idx = None;
             for (idx, op) in self.ops.iter().enumerate() {
                 match op {
-                    Op::Code(OpcodeType::OP_CODESEPARATOR) => {
+                    Op::Code(Opcode::OP_CODESEPARATOR) => {
                         if n_codesep == n_codeseps_found {
                             codesep_idx = Some(idx);
                             break;
@@ -65,7 +65,7 @@ impl<'a> Script<'a> {
         if let Some(code_separator_idx) = self
             .ops
             .iter()
-            .position(|op| op == &Op::Code(OpcodeType::OP_CODESEPARATOR))
+            .position(|op| op == &Op::Code(Opcode::OP_CODESEPARATOR))
         {
             Script::new(
                 self.ops[code_separator_idx + 1..].as_ref().into(),
@@ -85,7 +85,7 @@ impl<'a> Script<'a> {
 }
 
 fn serialize_push_bytes(vec: &mut Vec<u8>, bytes: &[u8], is_minimal_push: bool) -> Result<()> {
-    use OpcodeType::*;
+    use Opcode::*;
     match bytes.len() {
         0 if is_minimal_push => {
             vec.push(Opcode::OP_0 as u8);
@@ -123,7 +123,7 @@ fn serialize_push_bytes(vec: &mut Vec<u8>, bytes: &[u8], is_minimal_push: bool) 
 }
 
 pub fn serialize_op(vec: &mut Vec<u8>, op: &Op, is_minimal_push: bool) -> Result<()> {
-    use OpcodeType::*;
+    use Opcode::*;
     match *op {
         Op::Code(opcode) => Ok(vec.push(opcode as u8)),
         Op::PushBoolean(boolean) => {
@@ -153,7 +153,7 @@ pub fn serialize_ops(ops: &[Op], is_minimal_push: bool) -> Result<Vec<u8>> {
 }
 
 pub fn deserialize_ops(bytes: &[u8]) -> Result<Vec<Op>> {
-    use OpcodeType::*;
+    use Opcode::*;
     let mut i = 0;
     let mut ops = Vec::new();
     let mut cur = std::io::Cursor::new(bytes);

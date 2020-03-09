@@ -1,4 +1,4 @@
-use crate::{ByteArray, OpcodeType};
+use crate::{ByteArray, Opcode};
 use std::borrow::Cow;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -11,7 +11,7 @@ pub struct TaggedOp {
 
 #[derive(Clone, Eq, PartialEq)]
 pub enum Op {
-    Code(OpcodeType),
+    Code(Opcode),
     PushByteArray(ByteArray<'static>),
     PushBoolean(bool),
     PushInteger(i32),

@@ -6,11 +6,11 @@ use std::collections::HashMap;
 use crate::data_type::{BitcoinBoolean, BitcoinByteArray, BitcoinInteger, DataType};
 
 lazy_static! {
-    pub static ref MAP_NAME_TO_ENUM: HashMap<String, OpcodeType> = {
+    pub static ref MAP_NAME_TO_ENUM: HashMap<String, Opcode> = {
         let mut map = HashMap::new();
-        map.insert("OP_0".to_string(), OpcodeType::OP_0);
-        for code in 0x51..OpcodeType::FIRST_UNDEFINED_OP_VALUE as u8 {
-            let opcode: OpcodeType =
+        map.insert("OP_0".to_string(), Opcode::OP_0);
+        for code in 0x51..Opcode::FIRST_UNDEFINED_OP_VALUE as u8 {
+            let opcode: Opcode =
                 num::FromPrimitive::from_u8(code).expect(&format!("Invalid opcode {}", code));
             map.insert(format!("{:?}", opcode), opcode);
         }
@@ -39,7 +39,7 @@ pub struct OpcodeBehavior {
 
 #[allow(non_camel_case_types)]
 #[derive(Clone, Debug, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, FromPrimitive)]
-pub enum OpcodeType {
+pub enum Opcode {
     // push value
     OP_0 = 0x00,
     OP_PUSHDATA1 = 0x4c,
@@ -173,6 +173,7 @@ pub enum OpcodeType {
     // More crypto
     OP_CHECKDATASIG = 0xba,
     OP_CHECKDATASIGVERIFY = 0xbb,
+    OP_REVERSEBYTES = 0xbc,
 
     // The first op_code value after all defined opcodes
     FIRST_UNDEFINED_OP_VALUE,
@@ -189,6 +190,10 @@ pub mod func {
     #![allow(unused_variables)]
 
     use super::*;
+
+    pub fn FIRST<T>(item1: T, item2: T) -> T {
+        item1
+    }
 
     pub fn SECOND<T>(item1: T, item2: T) -> T {
         item2
@@ -444,7 +449,7 @@ pub mod func {
         BitcoinBoolean(true)
     }
     pub fn OP_CHECKSIGVERIFY(sig: BitcoinByteArray, pubkey: BitcoinByteArray) {}
-    pub fn OP_CHECKLOCKTIMEVERIFY(locktime: BitcoinByteArray) -> BitcoinByteArray {
+    pub fn OP_CHECKLOCKTIMEVERIFY(locktime: BitcoinInteger) -> BitcoinInteger {
         locktime
     }
     pub fn OP_CHECKSEQUENCEVERIFY(sequence: BitcoinByteArray) -> BitcoinByteArray {
@@ -463,11 +468,14 @@ pub mod func {
         pubkey: BitcoinByteArray,
     ) {
     }
+    pub fn OP_REVERSEBYTES(array: BitcoinByteArray) -> BitcoinByteArray {
+        BitcoinByteArray(b"TODO".to_vec())
+    }
 }
 
-impl OpcodeType {
+impl Opcode {
     pub fn is_disabled(self) -> bool {
-        use OpcodeType::*;
+        use Opcode::*;
         match self {
             OP_RESERVED | OP_RESERVED1 | OP_RESERVED2 | OP_MUL | OP_2MUL | OP_2DIV | OP_INVERT
             | OP_LSHIFT | OP_RSHIFT | OP_VER | OP_VERIF | OP_VERNOTIF => true,
@@ -477,7 +485,7 @@ impl OpcodeType {
 
     pub fn behavior(self) -> OpcodeBehavior {
         use DataType::*;
-        use OpcodeType::*;
+        use Opcode::*;
         use StackItemDelta::*;
         fn o(
             input_types: &'static [DataType],
@@ -525,14 +533,7 @@ impl OpcodeType {
                 &[T, T, T, T],
                 &[T, T, T, T, T, T],
                 &[0, 1, 2, 3, 0, 1],
-                &[
-                    Observed,
-                    Observed,
-                    Untouched,
-                    Untouched,
-                    Added,
-                    Added,
-                ],
+                &[Observed, Observed, Untouched, Untouched, Added, Added],
             ),
             OP_2ROT => o(
                 &[T, T, T, T, T, T],
@@ -655,8 +656,9 @@ impl OpcodeType {
             OP_CHECKDATASIGVERIFY => u(
                 &[ByteArray(None), ByteArray(None), ByteArray(None)],
                 &[],
-                &[Changed],
+                &[],
             ),
+            OP_REVERSEBYTES => u(&[ByteArray(None)], &[ByteArray(None)], &[Changed]),
             OP_0 | OP_1NEGATE | OP_1 | OP_2 | OP_3 | OP_4 | OP_5 | OP_6 | OP_7 | OP_8 | OP_9
             | OP_10 | OP_11 | OP_12 | OP_13 | OP_14 | OP_15 | OP_16 => u(&[], &[Integer], &[Added]),
 
@@ -666,6 +668,8 @@ impl OpcodeType {
 
             OP_TOALTSTACK => u(&[T], &[], &[]),
             OP_FROMALTSTACK => u(&[], &[T], &[Added]),
+
+            OP_CHECKLOCKTIMEVERIFY => u(&[Integer], &[Integer], &[Observed]),
 
             OP_IFDUP | OP_CHECKMULTISIG | OP_CHECKMULTISIGVERIFY => {
                 panic!("Opcode behavior cannot be expressed in OpcodeBehavior")
