@@ -6,8 +6,8 @@ pub trait Ops {
 }
 
 pub trait InputScript: Ops {
-    fn types() -> Vec<DataType>;
-    fn names() -> &'static [&'static str];
+    fn types(variant_name: Option<&str>) -> Vec<DataType>;
+    fn names(variant_name: Option<&str>) -> &'static [&'static str];
 }
 
 pub struct TaggedScript<I: InputScript> {
@@ -67,4 +67,4 @@ impl<I: InputScript> Clone for TaggedScript<I> {
     fn clone(&self) -> Self {
         TaggedScript::new(self.tagged_ops().to_vec())
     }
-} 
+}

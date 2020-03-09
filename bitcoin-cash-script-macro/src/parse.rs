@@ -8,23 +8,8 @@ pub fn parse_script(
     attrs: syn::AttributeArgs,
     func: syn::ItemFn,
 ) -> Result<ir::Script, syn::Error> {
-    let input_struct = if attrs.len() == 1 {
-        if let &[syn::NestedMeta::Meta(syn::Meta::Path(ref input_struct))] = attrs.as_slice() {
-            if input_struct.segments.len() == 1 {
-                Some(input_struct.segments[0].ident.clone())
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    } else {
-        None
-    };
-    let input_struct = input_struct.ok_or(syn::Error::new(
-        func.sig.span(),
-        "Expected parameter for input struct",
-    ))?;
+    let (input_struct, script_variants) =
+        parse_attrs(attrs).map_err(|msg| syn::Error::new(func.sig.span(), &msg))?;
     if let syn::ReturnType::Default = func.sig.output {
     } else {
         return Err(syn::Error::new(
@@ -34,6 +19,7 @@ pub fn parse_script(
     }
     Ok(ir::Script {
         input_struct,
+        script_variants,
         attrs: func.attrs,
         vis: func.vis,
         inputs: parse_script_inputs(func.sig.span(), func.sig.inputs.iter())?,
@@ -68,16 +54,133 @@ fn parse_script_inputs<'a>(
         .collect()
 }
 
+fn single_path(path: &syn::Path) -> Result<syn::Ident, ()> {
+    if path.segments.len() == 1 {
+        Ok(path.segments[0].ident.clone())
+    } else {
+        Err(())
+    }
+}
+
+fn parse_attrs(attrs: syn::AttributeArgs) -> Result<(syn::Ident, Vec<ir::ScriptVariant>), String> {
+    if attrs.len() == 0 {
+        return Err("Must provide at least input struct name".into());
+    }
+    let input_struct = if let syn::NestedMeta::Meta(syn::Meta::Path(input_struct)) = &attrs[0] {
+        single_path(input_struct)
+            .map_err(|_| "Input struct name cannot have a module".to_string())?
+    } else {
+        return Err("Invalid input struct name".into());
+    };
+    let variants = attrs
+        .into_iter()
+        .skip(1)
+        .map(|attr| {
+            if let syn::NestedMeta::Meta(syn::Meta::NameValue(variant)) = attr {
+                Ok(ir::ScriptVariant {
+                    name: single_path(&variant.path).map_err(|_| "Variant cannot have a module")?,
+                    predicate: parse_predicate(&variant.lit)?,
+                })
+            } else {
+                Err("Invalid variant, must be of form `VariantName=\"conditions\"`".to_string())
+            }
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    Ok((input_struct, variants))
+}
+
+fn parse_predicate(predicate_lit: &syn::Lit) -> Result<ir::VariantPredicate, String> {
+    let predicate_str = if let syn::Lit::Str(predicate_str) = predicate_lit {
+        predicate_str.value()
+    } else {
+        return Err("Invalid predicate literal, must be string.".to_string());
+    };
+    Ok(ir::VariantPredicate(
+        predicate_str
+            .split("||")
+            .map(|conjunction| {
+                Ok(ir::VariantPredicateConjunction(
+                    conjunction
+                        .split("&&")
+                        .map(|mut predicate_atom| {
+                            if predicate_atom.len() == 0 {
+                                return Err("Empty predicate name".to_string());
+                            }
+                            let is_negated = &predicate_atom[..1] == "!";
+                            if is_negated {
+                                predicate_atom = &predicate_atom[1..];
+                            }
+                            if predicate_atom.len() == 0 {
+                                return Err("Empty predicate name".to_string());
+                            }
+                            if !predicate_atom
+                                .chars()
+                                .all(|c| c.is_alphanumeric() || c == '_')
+                            {
+                                Err("Not a valid predicate name".to_string())
+                            } else {
+                                Ok(ir::VariantPredicateAtom {
+                                    var_name: predicate_atom.to_string(),
+                                    is_positive: !is_negated,
+                                })
+                            }
+                        })
+                        .collect::<Result<Vec<_>, String>>()?,
+                ))
+            })
+            .collect::<Result<Vec<_>, String>>()?,
+    ))
+}
+
 fn parse_script_input(sig_span: Span, input: &syn::PatType) -> Result<ir::ScriptInput, syn::Error> {
+    if input.attrs.len() > 1 {
+        return Err(syn::Error::new(sig_span, "Too many attributes"));
+    }
+    let mut variants = None;
+    if input.attrs.len() == 1 {
+        let attr = &input.attrs[0];
+        let err = |s| syn::Error::new(sig_span, s);
+        if &single_path(&attr.path)
+            .map_err(|_| err("Attribute must be `variant`"))?
+            .to_string()
+            != "variant"
+        {
+            return Err(err("Attribute must be `variant`"));
+        }
+        match attr.parse_meta()? {
+            syn::Meta::List(meta_list) => {
+                variants = Some(
+                    meta_list
+                        .nested
+                        .iter()
+                        .map(|nested_meta| {
+                            if let syn::NestedMeta::Meta(syn::Meta::Path(path)) = nested_meta {
+                                single_path(path).map_err(|_| err("Variant cannot have a module"))
+                            } else {
+                                Err(err("Invalid variant"))
+                            }
+                        })
+                        .collect::<Result<Vec<_>, _>>()?,
+                );
+            }
+            syn::Meta::Path(path) => {
+                variants = Some(vec![
+                    single_path(&path).map_err(|_| err("Variant cannot have a module"))?
+                ])
+            }
+            _ => return Err(err("Invalid variant")),
+        }
+    }
     if let syn::Pat::Ident(pat_ident) = &*input.pat {
         return Ok(ir::ScriptInput {
             ident: pat_ident.ident.clone(),
             ty: (*input.ty).clone(),
+            variants,
         });
     } else {
         return Err(syn::Error::new(
             sig_span,
-            "Currently, only plain identifiers are supported as script inputs.",
+            "Only plain identifiers are supported as script inputs.",
         ));
     }
 }
@@ -87,11 +190,7 @@ fn parse_stmts(stmts: Vec<syn::Stmt>) -> Result<Vec<ir::Stmt>, syn::Error> {
     for stmt in stmts {
         result_stmts.append(&mut parse_stmt(stmt)?);
     }
-    let (stmts, last_opcode) = parse_op_if(&result_stmts)?;
-    if let Some(last_opcode) = last_opcode {
-        return unexpected_error(last_opcode.ident);
-    }
-    Ok(stmts)
+    parse_op_if(result_stmts)
 }
 
 fn parse_stmt(stmt: syn::Stmt) -> Result<Vec<ir::Stmt>, syn::Error> {
@@ -147,7 +246,7 @@ fn parse_stmt(stmt: syn::Stmt) -> Result<Vec<ir::Stmt>, syn::Error> {
                     }
                     Ok(vec![ir::Stmt::Push(
                         src,
-                        ir::Push {
+                        ir::PushStmt {
                             span: expr.span(),
                             expr,
                             output_name: Some(outputs[0].clone()),
@@ -157,20 +256,20 @@ fn parse_stmt(stmt: syn::Stmt) -> Result<Vec<ir::Stmt>, syn::Error> {
             }
         }
         syn::Stmt::Expr(expr) | syn::Stmt::Semi(expr, _) => parse_stmt_expr(expr),
-        syn::Stmt::Item(item) => unexpected_error(item),
+        syn::Stmt::Item(item) => unexpected_error_msg(item, "Unexpected Item"),
     }
 }
 
 fn parse_stmt_expr(expr: syn::Expr) -> Result<Vec<ir::Stmt>, syn::Error> {
     match expr {
-        syn::Expr::ForLoop(expr_for_loop) => Ok(vec![ir::Stmt::ForLoop(ir::ForLoop {
+        syn::Expr::ForLoop(expr_for_loop) => Ok(vec![ir::Stmt::ForLoop(ir::ForLoopStmt {
             span: expr_for_loop.span(),
             attrs: expr_for_loop.attrs,
             pat: expr_for_loop.pat,
             expr: *expr_for_loop.expr,
             stmts: parse_stmts(expr_for_loop.body.stmts)?,
         })]),
-        syn::Expr::If(expr_if) => Ok(vec![ir::Stmt::RustIf(ir::RustIf {
+        syn::Expr::If(expr_if) => Ok(vec![ir::Stmt::RustIf(ir::RustIfStmt {
             span: expr_if.span(),
             attrs: expr_if.attrs,
             cond: *expr_if.cond,
@@ -189,7 +288,7 @@ fn parse_stmt_expr(expr: syn::Expr) -> Result<Vec<ir::Stmt>, syn::Error> {
             let src = format!("{}", expr.to_token_stream());
             Ok(vec![ir::Stmt::Push(
                 src,
-                ir::Push {
+                ir::PushStmt {
                     span: expr.span(),
                     expr,
                     output_name: None,
@@ -202,30 +301,30 @@ fn parse_stmt_expr(expr: syn::Expr) -> Result<Vec<ir::Stmt>, syn::Error> {
 fn parse_opcode(
     expr: syn::Expr,
     output_names: Option<Vec<syn::Ident>>,
-) -> Result<ir::Opcode, syn::Error> {
+) -> Result<ir::OpcodeStmt, syn::Error> {
     let span = expr.span();
     let (path, input_names) = match expr {
         syn::Expr::Call(expr_call) => {
             if expr_call.attrs.len() > 0 {
-                return unexpected_error(&expr_call.attrs[0]);
+                return unexpected_error_msg(&expr_call.attrs[0], "Unexpected attribute");
             };
             let path = if let syn::Expr::Path(path) = *expr_call.func {
                 path
             } else {
-                return unexpected_error(expr_call.func);
+                return unexpected_error_msg(expr_call.func, "Expected path");
             };
             let inputs = parse_opcode_inputs(expr_call.args)?;
             (path, Some(inputs))
         }
         syn::Expr::Path(expr_path) => (expr_path, None),
-        expr_other => unexpected_error(expr_other)?,
+        expr_other => unexpected_error_msg(expr_other, "Expected call or path")?,
     };
     let path = path.path;
     if path.segments.len() > 1 {
         return unexpected_error_msg(&path.segments[1], "Expected opcode.");
     }
     let ident = path.segments[0].ident.clone();
-    Ok(ir::Opcode {
+    Ok(ir::OpcodeStmt {
         span,
         ident,
         input_names,
@@ -240,13 +339,6 @@ fn parse_opcode_inputs(
     for arg in args {
         match arg {
             syn::Expr::Path(ident) if ident.path.segments.len() == 1 => {
-                /*if has_seen_expr {
-                    return unexpected_error_msg(
-                        ident,
-                        "Push input expressions must all appear after the last stack identifier input. \
-                         Use { expr } syntax to avoid this error, if this is a push input expression.",
-                    );
-                }*/
                 let ident = ident.path.segments[0].ident.clone();
                 inputs.push(ir::OpcodeInput::Ident(ident));
             }
@@ -258,76 +350,78 @@ fn parse_opcode_inputs(
     Ok(inputs)
 }
 
-fn parse_op_if(stmts: &[ir::Stmt]) -> Result<(Vec<ir::Stmt>, Option<ir::Opcode>), syn::Error> {
-    let mut i = 0;
+fn parse_op_if(stmts: Vec<ir::Stmt>) -> Result<Vec<ir::Stmt>, syn::Error> {
     let mut new_stmts = Vec::new();
-    while i < stmts.len() {
-        let stmt = &stmts[i];
-        if let ir::Stmt::Opcode(src, opcode) = stmt {
-            match opcode.ident.to_string().as_str() {
+    let mut if_stack = Vec::new();
+    let mut is_then = true;
+    struct If {
+        if_opcode: ir::OpcodeStmt,
+        if_src: String,
+        else_opcode: Option<ir::OpcodeStmt>,
+        else_src: Option<String>,
+        then_stmts: Vec<ir::Stmt>,
+        else_stmts: Vec<ir::Stmt>,
+    }
+    for stmt in stmts {
+        let stmt = match stmt {
+            ir::Stmt::Opcode(src, opcode) => match opcode.ident.to_string().as_str() {
                 "OP_IF" | "OP_NOTIF" => {
-                    i += 1;
-                    let (then_stmts, last_opcode) = parse_op_if(&stmts[i..])?;
-                    let last_opcode = last_opcode.ok_or(syn::Error::new(
-                        opcode.span,
-                        format!("{} has no corresponding OP_ELSE/OP_ENDIF", opcode.ident),
-                    ))?;
-                    i += then_stmts.len();
-                    let (else_stmts, else_opcode, endif_opcode) =
-                        if last_opcode.ident.to_string().as_str() == "OP_ELSE" {
-                            i += 1;
-                            let (else_stmts, endif_opcode) = parse_op_if(&stmts[i..])?;
-                            let endif_opcode = endif_opcode.ok_or(syn::Error::new(
-                                opcode.span,
-                                format!("{} has no corresponding OP_ENDIF", last_opcode.ident),
-                            ))?;
-                            if endif_opcode.ident.to_string().as_str() != "OP_ENDIF" {
-                                return unexpected_error_msg(
-                                    &opcode.ident,
-                                    "Multiple OP_ELSE not supported.",
-                                );
-                            }
-                            i += else_stmts.len() + 1;
-                            (else_stmts, Some(last_opcode), endif_opcode)
-                        } else {
-                            (vec![], None, last_opcode)
-                        };
-                    new_stmts.push(ir::Stmt::ScriptIf(
-                        src.clone(),
-                        ir::ScriptIf {
-                            if_opcode: opcode.clone(),
-                            else_opcode,
-                            endif_opcode,
-                            then_stmts,
-                            else_stmts,
-                        },
-                    ));
+                    if_stack.push(If {
+                        if_opcode: opcode,
+                        if_src: src,
+                        else_opcode: None,
+                        else_src: None,
+                        then_stmts: vec![],
+                        else_stmts: vec![],
+                    });
+                    is_then = true;
                     continue;
                 }
                 "OP_ELSE" => {
-                    return Ok((new_stmts, Some(opcode.clone())));
+                    is_then = false;
+                    let top_if = if_stack
+                        .last_mut()
+                        .ok_or_else(|| syn::Error::new(opcode.span, "No previous OP_IF found."))?;
+                    top_if.else_opcode = Some(opcode);
+                    top_if.else_src = Some(src);
+                    continue;
                 }
                 "OP_ENDIF" => {
-                    return Ok((new_stmts, Some(opcode.clone())));
+                    let top_if = if_stack
+                        .pop()
+                        .ok_or_else(|| syn::Error::new(opcode.span, "No previous OP_IF found."))?;
+                    ir::Stmt::ScriptIf(
+                        top_if.if_src,
+                        ir::ScriptIfStmt {
+                            if_opcode: top_if.if_opcode,
+                            else_opcode: top_if.else_opcode,
+                            endif_opcode: opcode,
+                            then_stmts: top_if.then_stmts,
+                            else_stmts: top_if.else_stmts,
+                        },
+                    )
                 }
-                _ => {
-                    i += 1;
-                }
-            }
+                _ => ir::Stmt::Opcode(src, opcode),
+            },
+            stmt => stmt,
+        };
+        if if_stack.len() == 0 {
+            new_stmts.push(stmt);
         } else {
-            i += 1;
+            let top_if = if_stack.last_mut().unwrap();
+            if is_then {
+                top_if.then_stmts.push(stmt);
+            } else {
+                top_if.else_stmts.push(stmt);
+            }
         }
-        new_stmts.push(stmt.clone());
     }
-    Ok((new_stmts, None))
+    if let Some(last_if) = if_stack.last() {
+        return Err(syn::Error::new(last_if.if_opcode.span, "Unclosed OP_IF."));
+    }
+    return Ok(new_stmts);
 }
 
-fn unexpected_error<T>(token: impl Spanned + ToTokens) -> Result<T, syn::Error> {
-    Err(syn::Error::new(
-        token.span(),
-        format!("Unexpected `{}`.", token.to_token_stream()),
-    ))
-}
 
 fn unexpected_error_msg<T>(token: impl Spanned + ToTokens, msg: &str) -> Result<T, syn::Error> {
     Err(syn::Error::new(

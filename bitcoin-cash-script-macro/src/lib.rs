@@ -3,6 +3,8 @@ extern crate proc_macro;
 mod generate;
 mod ir;
 mod parse;
+mod state;
+
 use quote::quote;
 
 #[proc_macro_attribute]
@@ -16,8 +18,10 @@ pub fn script(
     let script_ident = quote! {__script_vec};
     let mut generate_script = generate::GenerateScript {
         script_ident: script_ident.clone(),
-        stack: vec![],
-        alt_stack: vec![],
+        variant_states: state::VariantStates {
+            states: Default::default(),
+            predicate_atoms: vec![],
+        },
         n_ident: 0,
     };
     let result = generate_script.run(parsed_script);

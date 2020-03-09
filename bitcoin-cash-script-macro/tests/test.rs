@@ -1,4 +1,4 @@
-use bitcoin_cash_script::{ByteArray, Op, OpcodeType::*, Ops, TaggedOp};
+use bitcoin_cash_script::{ByteArray, Op, Opcode::*, Ops, TaggedOp};
 
 #[test]
 fn test_adding() {
@@ -244,6 +244,7 @@ fn test_depth_of() {
         let _c = 4;
         let _depth = depth_of(_a);
         OP_PICK(_depth);
+        OP_1ADD(_a);
     }
 
     assert_eq!(
@@ -254,6 +255,100 @@ fn test_depth_of() {
             Op::PushInteger(4),
             Op::PushInteger(2),
             Op::Code(OP_PICK),
+            Op::Code(OP_1ADD),
         ],
     );
+}
+
+#[test]
+fn test_attributes() {
+    #[bitcoin_cash_script_macro::script(Inputs, A = "!p1", B = "p1")]
+    fn script(_: (), #[variant(A)] a: i32, #[variant(A, B)] b: i32, c: i32) {
+        let p1 = OP_0NOTEQUAL(c);
+        OP_IF(p1);
+        {
+            let c = OP_1ADD(b);
+        }
+        OP_ELSE;
+        {
+            let c = OP_SUB(a, b);
+        }
+        OP_ENDIF;
+        let d = OP_1SUB(c);
+        let p2 = OP_0NOTEQUAL(d);
+        OP_VERIFY(p2);
+    }
+
+    Inputs::A { a: 12, b: 5, c: 4 };
+
+    Inputs::B { b: 3, c: 0 };
+}
+
+#[test]
+fn test_generics() {
+    #[bitcoin_cash_script_macro::script(Inputs)]
+    fn script<'a>(_: (), a: ByteArray<'a>) {
+        let _4 = 4;
+        let (b, c) = OP_SPLIT(a, _4);
+    }
+    assert_eq!(
+        script(()).ops().as_ref(),
+        &[Op::PushInteger(4), Op::Code(OP_SPLIT),],
+    );
+    assert_eq!(
+        Inputs {
+            a: ByteArray::from_slice("a", b"")
+        }
+        .ops()
+        .as_ref(),
+        &[Op::PushByteArray(ByteArray::from_slice("a", b"")),],
+    );
+}
+
+#[test]
+fn test_generics_variants() {
+    #[bitcoin_cash_script_macro::script(Inputs, A = "!p1", B = "p1")]
+    fn script<'a>(
+        _: (),
+        #[variant(A)] a: ByteArray<'a>,
+        #[variant(A, B)] b: ByteArray<'a>,
+        c: ByteArray<'a>,
+    ) {
+        let empty_str = b"";
+        let p1 = OP_EQUAL(c, empty_str);
+        OP_IF(p1);
+        {
+            let suffix = b"bla";
+            let c = OP_CAT(b, suffix);
+        }
+        OP_ELSE;
+        {
+            let c = OP_CAT(a, b);
+        }
+        OP_ENDIF;
+        let _4 = 4;
+        let (_x, _y) = OP_SPLIT(c, _4);
+    }
+
+    Inputs::A {
+        a: ByteArray::from_slice("a", b"tree"),
+        b: ByteArray::from_slice("b", b"milk"),
+        c: ByteArray::from_slice("c", b"eggs"),
+    };
+
+    Inputs::B {
+        b: ByteArray::from_slice("b", b"potato"),
+        c: ByteArray::from_slice("c", b"pineapple"),
+    };
+}
+
+#[test]
+fn test_placeholder() {
+    #[bitcoin_cash_script_macro::script(Inputs)]
+    fn script(_: (), a: i32, b: i32, c: i32) {
+        let (__, __, beer) = OP_ROT(a, __, __);
+        OP_DROP(beer);
+        OP_DROP(c);
+        OP_DROP(b);
+    }
 }

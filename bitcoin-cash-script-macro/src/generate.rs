@@ -1,46 +1,25 @@
 use crate::ir;
-use bitcoin_cash_script::{Integer, OpcodeType};
+use crate::state::{StackItem, State, VariantStates};
+use bitcoin_cash_script::{Integer, Opcode};
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
+use std::collections::HashMap;
+use std::iter::FromIterator;
+use syn::punctuated::Punctuated;
 
-#[derive(Clone)]
-pub struct StackItem {
-    ident: syn::Ident,
-    name: String,
-    has_generated_name: bool,
-    integer: Option<Integer>,
-}
+pub type Error = syn::Error;
 
 pub struct GenerateScript {
+    pub variant_states: VariantStates,
     pub script_ident: TokenStream,
-    pub stack: Vec<StackItem>,
-    pub alt_stack: Vec<StackItem>,
     pub n_ident: usize,
-}
-
-pub struct Error {
-    pub errs: Vec<syn::Error>,
-}
-impl Into<Error> for syn::Error {
-    fn into(self) -> Error {
-        Error { errs: vec![self] }
-    }
-}
-impl Error {
-    fn new<D: std::fmt::Display>(span: Span, msg: D) -> Self {
-        syn::Error::new(span, msg).into()
-    }
 }
 
 impl GenerateScript {
     pub fn run(&mut self, script: Result<ir::Script, syn::Error>) -> TokenStream {
         match self.run_script(script.map_err(Into::into)) {
             Ok(compiled_script) => compiled_script,
-            Err(err) => err
-                .errs
-                .into_iter()
-                .map(|err| err.to_compile_error())
-                .collect(),
+            Err(err) => err.to_compile_error(),
         }
     }
 
@@ -48,9 +27,31 @@ impl GenerateScript {
         let mut script = script?;
         let mut new_stmts = Vec::with_capacity(script.stmts.len());
         let mut struct_fields = Vec::with_capacity(script.inputs.len());
+        let mut enum_variant_fields = HashMap::with_capacity(script.script_variants.len());
         let mut impl_pushops = Vec::with_capacity(script.inputs.len());
         let mut impl_types = Vec::with_capacity(script.inputs.len());
         let mut impl_names = Vec::with_capacity(script.inputs.len());
+        for variant in script.script_variants.iter() {
+            self.variant_states.states.insert(
+                variant.name.clone(),
+                State {
+                    condition: variant.predicate.clone(),
+                    stack: vec![],
+                    alt_stack: vec![],
+                },
+            );
+            enum_variant_fields.insert(variant.name.clone(), Vec::new());
+        }
+        if script.script_variants.len() == 0 {
+            self.variant_states.states.insert(
+                script.input_struct.clone(),
+                State {
+                    condition: ir::VariantPredicate(vec![]),
+                    stack: vec![],
+                    alt_stack: vec![],
+                },
+            );
+        }
         for input in script.inputs {
             let span = input.ident.span();
             let ident = &input.ident;
@@ -69,58 +70,183 @@ impl GenerateScript {
                 <#ty as Default>::default().to_data_type()
             });
             impl_names.push(ident_str.clone());
-            self.push(StackItem {
-                ident: input.ident,
+            let stack_item = StackItem {
+                ident: input.ident.clone(),
                 name: ident_str,
                 has_generated_name: false,
                 integer: None,
-            });
+            };
+            if let Some(variants) = &input.variants {
+                for variant in variants {
+                    let stack = self
+                        .variant_states
+                        .states
+                        .get_mut(&variant)
+                        .ok_or(Error::new(
+                            span,
+                            format!("Undefined variant `{}`.", variant),
+                        ))?;
+                    stack.stack.push(stack_item.clone());
+                    let fields = enum_variant_fields.get_mut(&variant).unwrap();
+                    fields.push((ident.clone(), ty.clone()));
+                }
+            } else {
+                self.push(stack_item);
+                for variant in script.script_variants.iter() {
+                    let fields = enum_variant_fields.get_mut(&variant.name).unwrap();
+                    fields.push((ident.clone(), ty.clone()));
+                }
+            }
         }
         for stmt in script.stmts {
             new_stmts.push(self.run_stmt(stmt)?);
         }
         let attrs = script.attrs;
         let vis = script.vis;
-        let mut inputs = syn::punctuated::Punctuated::new();
+        let mut inputs = Punctuated::new();
         inputs.push(script.sig.inputs[0].clone());
         script.sig.inputs = inputs;
         script.sig.output = syn::ReturnType::Default;
         let input_struct = script.input_struct;
         let sig = script.sig;
+        let generics = sig.generics.clone();
+        let generics_idents: Punctuated<_, syn::token::Comma> =
+            Punctuated::from_iter(generics.params.iter().map(|param| match param {
+                syn::GenericParam::Type(ty) => ty.ident.to_token_stream(),
+                syn::GenericParam::Lifetime(lt) => lt.lifetime.to_token_stream(),
+                _ => panic!("Generic const not supported"),
+            }));
         let script_ident = &self.script_ident;
 
-        Ok(quote! {
-            #vis struct #input_struct {
-                #(#struct_fields),*
-            }
+        let (input_struct_enum, impl_ops, impl_types, impl_names) =
+            if script.script_variants.len() == 0 {
+                (
+                    quote! {
+                        #vis struct #input_struct #generics {
+                            #(#struct_fields),*
+                        }
+                    },
+                    quote! {
+                        vec![
+                            #(#impl_pushops),*
+                        ]
+                    },
+                    quote! {
+                        vec![
+                            #(#impl_types),*
+                        ]
+                    },
+                    quote! {
+                        &[
+                            #(#impl_names),*
+                        ]
+                    },
+                )
+            } else {
+                let mut enum_variants = Vec::with_capacity(script.script_variants.len());
+                let mut match_ops = Vec::with_capacity(script.script_variants.len());
+                let mut match_types = Vec::with_capacity(script.script_variants.len());
+                let mut match_names = Vec::with_capacity(script.script_variants.len());
+                for (variant_name, variant_fields) in enum_variant_fields {
+                    let variant_name_str = variant_name.to_string();
+                    let variant_fields_quote = variant_fields.iter().map(|(ident, ty)| {
+                        quote! {
+                            #ident: #ty
+                        }
+                    });
+                    enum_variants.push(quote! {
+                        #variant_name {
+                            #(#variant_fields_quote),*
+                        }
+                    });
 
-            impl bitcoin_cash_script::Ops for #input_struct {
+                    let unpack_variant = variant_fields.iter().map(|(ident, _)| ident);
+                    let variant_pushops = variant_fields.iter().map(|(ident, _)| {
+                        quote! {
+                            #ident.to_pushop()
+                        }
+                    });
+                    match_ops.push(quote! {
+                        #input_struct::#variant_name { #(#unpack_variant),* } => vec![
+                            #(#variant_pushops),*
+                        ]
+                    });
+
+                    let variant_types = variant_fields.iter().map(|(_, ty)| {
+                        quote! {
+                            <#ty as Default>::default().to_data_type()
+                        }
+                    });
+                    match_types.push(quote! {
+                        Some(#variant_name_str) => vec![
+                            #(#variant_types),*
+                        ]
+                    });
+                    let field_names_str = variant_fields.iter().map(|(ident, _)| ident.to_string());
+                    match_names.push(quote! {
+                        Some(#variant_name_str) => &[
+                            #(#field_names_str),*
+                        ]
+                    });
+                }
+                let match_none = quote! {
+                    None => panic!("Must provide enum variant name")
+                };
+                let match_unknown = quote! {
+                    Some(variant) => panic!(format!("Unknown variant: {}", variant))
+                };
+                match_types.push(match_unknown.clone());
+                match_types.push(match_none.clone());
+                match_names.push(match_unknown);
+                match_names.push(match_none);
+                (
+                    quote! {
+                        #vis enum #input_struct #generics {
+                            #(#enum_variants),*
+                        }
+                    },
+                    quote! {
+                        match self {
+                            #(#match_ops),*
+                        }
+                    },
+                    quote! {
+                        match variant_name {
+                            #(#match_types),*
+                        }
+                    },
+                    quote! {
+                        match variant_name {
+                            #(#match_names),*
+                        }
+                    },
+                )
+            };
+
+        Ok(quote! {
+            #input_struct_enum
+
+            impl #generics bitcoin_cash_script::Ops for #input_struct<#generics_idents> {
                 fn ops(&self) -> std::borrow::Cow<[bitcoin_cash_script::Op]> {
                     use bitcoin_cash_script::BitcoinDataType;
-                    vec![
-                        #(#impl_pushops),*
-                    ].into()
+                    #impl_ops.into()
                 }
             }
 
-            impl bitcoin_cash_script::InputScript for #input_struct {
-                fn types() -> Vec<bitcoin_cash_script::DataType> {
+            impl #generics bitcoin_cash_script::InputScript for #input_struct<#generics_idents> {
+                fn types(variant_name: Option<&str>) -> Vec<bitcoin_cash_script::DataType> {
                     use bitcoin_cash_script::BitcoinDataType;
-                    vec![
-                        #(#impl_types),*
-                    ]
+                    #impl_types
                 }
 
-                fn names() -> &'static [&'static str] {
-                    &[
-                        #(#impl_names),*
-                    ]
+                fn names(variant_name: Option<&str>) -> &'static [&'static str] {
+                    #impl_names
                 }
             }
 
             #[allow(redundant_semicolon)]
             #(#attrs)*
-            #vis #sig -> bitcoin_cash_script::TaggedScript<#input_struct> {
+            #vis #sig -> bitcoin_cash_script::TaggedScript<#input_struct<#generics_idents>> {
                 use bitcoin_cash_script::BitcoinDataType;
                 let mut #script_ident = Vec::new();
                 #(#new_stmts)*
@@ -135,118 +261,17 @@ impl GenerateScript {
                 for_loop.span,
                 format!("For loops not implemented yet"),
             )),
-            ir::Stmt::RustIf(if_stmt) => {
-                Err(Error::new(if_stmt.span, format!("If not implemented yet")))
-            }
+            ir::Stmt::RustIf(if_stmt) => Err(Error::new(
+                if_stmt.span,
+                format!("`if` not implemented yet"),
+            )),
             ir::Stmt::Push(src, push) => self.run_push(src, push),
             ir::Stmt::Opcode(src, opcode) => self.run_opcode(src, opcode),
-            ir::Stmt::ScriptIf(src, script_if) => {
-                let mut tokens = Vec::new();
-                tokens.push(self.run_opcode(src, script_if.if_opcode)?);
-                let stack_before = self.stack.clone();
-                let endif_span = script_if.endif_opcode.span;
-                let mut then_tokens = Vec::new();
-                for stmt in script_if.then_stmts {
-                    then_tokens.push(self.run_stmt(stmt)?);
-                }
-                if let Some(else_opcode) = script_if.else_opcode {
-                    then_tokens
-                        .push(self.run_opcode(format!("{}", else_opcode.ident), else_opcode)?);
-                }
-                let stack_after_then = std::mem::replace(&mut self.stack, stack_before);
-                let mut else_tokens = Vec::new();
-                for stmt in script_if.else_stmts {
-                    else_tokens.push(self.run_stmt(stmt)?);
-                }
-                else_tokens.push(self.run_opcode(
-                    format!("{}", script_if.endif_opcode.ident),
-                    script_if.endif_opcode,
-                )?);
-                if stack_after_then.len() != self.stack.len() {
-                    let then_names = stack_after_then
-                        .iter()
-                        .map(|item| item.name.clone())
-                        .collect::<Vec<_>>()
-                        .join(", ");
-                    let else_names = self
-                        .stack
-                        .iter()
-                        .map(|item| item.name.clone())
-                        .collect::<Vec<_>>()
-                        .join(", ");
-                    return Err(Error::new(endif_span, format!(
-                        "Stacks in this branch result in different stack heights. After OP_IF: [{}], after OP_ELSE: [{}]",
-                        then_names,
-                        else_names,
-                    )));
-                }
-                for (idx, (then_item, else_item)) in stack_after_then
-                    .iter()
-                    .rev()
-                    .zip(self.stack.iter_mut().rev())
-                    .enumerate()
-                {
-                    if then_item.has_generated_name != else_item.has_generated_name {
-                        return Err(Error::new(
-                            endif_span,
-                            format!(
-                                "Branch results in inconsistent stack item names. \
-                                 Item {} from the top {} a name in the OP_IF branch while \
-                                 it {} in the OP_ELSE branch.",
-                                idx,
-                                if !then_item.has_generated_name {
-                                    "has"
-                                } else {
-                                    "doesn't have"
-                                },
-                                if !else_item.has_generated_name {
-                                    "does"
-                                } else {
-                                    "doesn't"
-                                },
-                            ),
-                        ));
-                    } else if !then_item.has_generated_name && !else_item.has_generated_name {
-                        if then_item.name != else_item.name {
-                            return Err(Error::new(
-                                endif_span,
-                                format!(
-                                    "Branch results in inconsistent stack item names. \
-                                     Item {} from the top is named `{}` in the OP_IF branch while \
-                                     it is named `{}` in the OP_ELSE branch.",
-                                    idx, then_item.name, else_item.name,
-                                ),
-                            ));
-                        }
-                    }
-                    else_item.integer = None;
-                }
-                let then_outputs = stack_after_then
-                    .iter()
-                    .map(|item| item.ident.clone())
-                    .collect::<Vec<_>>();
-                let else_outputs = self
-                    .stack
-                    .iter()
-                    .map(|item| item.ident.clone())
-                    .collect::<Vec<_>>();
-
-                tokens.push(quote! {
-                    let (#(#else_outputs),* ,) = bitcoin_cash_script::func::SECOND({
-                        #(#then_tokens)*
-                        (#(#then_outputs.clone()),* ,)
-                    }, {
-                        #(#else_tokens)*
-                        (#(#else_outputs.clone()),* ,)
-                    });
-                });
-
-                Ok(tokens.into_iter().collect())
-            }
+            ir::Stmt::ScriptIf(src, script_if) => self.run_if(src, script_if),
         }
     }
 
-    fn run_push(&mut self, src: String, push: ir::Push) -> Result<TokenStream, Error> {
+    fn run_push(&mut self, src: String, push: ir::PushStmt) -> Result<TokenStream, Error> {
         let has_generated_name = push.output_name.is_none();
         let span = push.span;
         let output_names = Self::to_vec_str_tokens(
@@ -260,7 +285,7 @@ impl GenerateScript {
             .output_name
             .or_else(|| Some(self.make_ident(span)))
             .unwrap();
-        self.stack.push(StackItem {
+        self.variant_states.push(StackItem {
             ident: ident.clone(),
             name: ident.to_string(),
             has_generated_name,
@@ -279,8 +304,8 @@ impl GenerateScript {
         })
     }
 
-    fn run_opcode(&mut self, src: String, opcode: ir::Opcode) -> Result<TokenStream, Error> {
-        use OpcodeType::*;
+    fn run_opcode(&mut self, src: String, opcode: ir::OpcodeStmt) -> Result<TokenStream, Error> {
+        use Opcode::*;
         let script_ident = self.script_ident.clone();
         let ident = &opcode.ident;
         let span = opcode.span;
@@ -289,8 +314,10 @@ impl GenerateScript {
         let opcode_type = bitcoin_cash_script::MAP_NAME_TO_ENUM.get(&ident.to_string());
         match opcode_type {
             Some(&opcode_type @ OP_TOALTSTACK) => {
-                let stack_item = self.pop(opcode_type, span)?;
-                self.alt_stack.push(stack_item);
+                let mut item = self.pop(opcode_type, span)?;
+                Self::verify_item_name(opcode_type, &opcode, &item)?;
+                Self::update_item_name(opcode_type, &opcode, &mut item)?;
+                self.push_alt(item);
                 Ok(quote_spanned! {span=>
                     #script_ident.push(bitcoin_cash_script::TaggedOp {
                         src: #src.into(),
@@ -301,8 +328,10 @@ impl GenerateScript {
                 })
             }
             Some(&opcode_type @ OP_FROMALTSTACK) => {
-                self.stack
-                    .push(Self::pop_stack(&mut self.alt_stack, opcode_type, span)?);
+                let mut item = self.pop_alt(opcode_type, span)?;
+                Self::verify_item_name(opcode_type, &opcode, &item)?;
+                Self::update_item_name(opcode_type, &opcode, &mut item)?;
+                self.variant_states.push(item);
                 Ok(quote_spanned! {span=>
                     #script_ident.push(bitcoin_cash_script::TaggedOp {
                         src: #src.into(),
@@ -314,32 +343,24 @@ impl GenerateScript {
             }
             Some(&opcode_type @ OP_PICK) | Some(&opcode_type @ OP_ROLL) => {
                 let stack_item = self.pop(opcode_type, span)?;
-                let item_idx = match stack_item.integer {
+                Self::verify_item_name(opcode_type, &opcode, &stack_item)?;
+                let item_depth = match stack_item.integer {
                     Some(integer) => integer as usize,
-                    _ => 0,  // take top stack item if not known statically
+                    _ => 0, // take top stack item if not known statically
                 };
-                if item_idx >= self.stack.len() {
-                    Err(Error::new(
-                        span,
-                        format!(
-                            "{:?} tried to access {} items deep, but stack only has {} items",
-                            opcode_type,
-                            item_idx,
-                            self.stack.len(),
-                        ),
-                    ))?
-                }
-                match opcode_type {
-                    OP_PICK => {
-                        self.stack
-                            .push(self.stack[self.stack.len() - item_idx - 1].clone());
-                    }
-                    OP_ROLL => {
-                        let rolled_stack_item = self.stack.remove(self.stack.len() - item_idx - 1);
-                        self.stack.push(rolled_stack_item);
-                    }
+                let mut item = match opcode_type {
+                    OP_PICK => self
+                        .variant_states
+                        .pick(item_depth)
+                        .map_err(|err| error_opcode(err, opcode_type, span))?,
+                    OP_ROLL => self
+                        .variant_states
+                        .roll(item_depth)
+                        .map_err(|err| error_opcode(err, opcode_type, span))?,
                     _ => unreachable!(),
-                }
+                };
+                Self::update_item_name(opcode_type, &opcode, &mut item)?;
+                self.push(item);
                 let ident = opcode.ident;
                 let input_name = stack_item.ident;
                 Ok(quote_spanned! {span=>
@@ -362,20 +383,19 @@ impl GenerateScript {
     fn run_other_opcode(
         &mut self,
         src: String,
-        opcode_type: OpcodeType,
-        opcode: ir::Opcode,
+        opcode_type: Opcode,
+        opcode: ir::OpcodeStmt,
         input_names: TokenStream,
         output_names: TokenStream,
     ) -> Result<TokenStream, Error> {
         let span = opcode.span;
         let behavior = opcode_type.behavior();
-        if self.stack.len() < behavior.input_types.len() {
-            return Err(error_empty_stack(opcode_type, span));
+        let mut input_items = Vec::new();
+        for _ in 0..behavior.input_types.len() {
+            let item = self.pop(opcode_type, opcode.span)?;
+            input_items.push(item);
         }
-        let input_items = self
-            .stack
-            .drain(self.stack.len() - behavior.input_types.len()..)
-            .collect::<Vec<_>>();
+        input_items.reverse();
         if let Some(input_names) = opcode.input_names {
             if input_items.len() != input_names.len() {
                 return Err(Error::new(
@@ -389,6 +409,9 @@ impl GenerateScript {
             }
             for (input_item, input_name) in input_items.iter().zip(input_names) {
                 if let ir::OpcodeInput::Ident(ident) = input_name {
+                    if &ident.to_string() == "__" {
+                        continue;
+                    }
                     if input_item.has_generated_name {
                         return Err(Error::new(
                             ident.span(),
@@ -398,20 +421,13 @@ impl GenerateScript {
                             ),
                         ));
                     } else if input_item.name != ident.to_string() {
-                        let stack_names = self
-                            .stack
-                            .iter()
-                            .chain(input_items.iter())
-                            .map(|item| item.name.clone())
-                            .collect::<Vec<_>>()
-                            .join(", ");
                         return Err(Error::new(
                             ident.span(),
                             format!(
-                                "Mismatched stack item name, expected `{}` but got `{}`. Current stack: [{}]",
+                                "Mismatched stack item name, expected `{}` but got `{}`.",
                                 input_item.name,
                                 ident,
-                                stack_names,
+                                // TODO: stack_names,
                             ),
                         ));
                     }
@@ -431,11 +447,22 @@ impl GenerateScript {
                     ),
                 ));
             }
-            for ident in output_names {
+            for (idx, ident) in output_names.into_iter().enumerate() {
                 let new_ident = self.make_ident(ident.span());
+                let name = ident.to_string();
                 output_idents.push(new_ident.clone());
-                self.stack.push(StackItem {
-                    name: format!("{}", ident),
+                if &name == "__" {
+                    if let Some(output_order) = behavior.output_order {
+                        let new_idx = output_order[idx];
+                        self.push(StackItem {
+                            ident: new_ident,
+                            ..input_items[new_idx].clone()
+                        });
+                        continue;
+                    }
+                }
+                self.push(StackItem {
+                    name,
                     ident: new_ident,
                     has_generated_name: false,
                     integer: None,
@@ -447,7 +474,7 @@ impl GenerateScript {
                     for &new_idx in output_order {
                         let new_ident = self.make_ident(input_items[new_idx].ident.span());
                         output_idents.push(new_ident.clone());
-                        self.stack.push(StackItem {
+                        self.push(StackItem {
                             ident: new_ident,
                             ..input_items[new_idx].clone()
                         });
@@ -457,7 +484,7 @@ impl GenerateScript {
                     for _ in 0..behavior.output_types.len() {
                         let ident = self.make_ident(span);
                         output_idents.push(ident.clone());
-                        self.stack.push(StackItem {
+                        self.push(StackItem {
                             name: ident.to_string(),
                             ident,
                             has_generated_name: true,
@@ -494,53 +521,47 @@ impl GenerateScript {
     fn run_opcode_function(
         &mut self,
         src: String,
-        opcode: ir::Opcode,
+        opcode: ir::OpcodeStmt,
     ) -> Result<TokenStream, Error> {
         match opcode.ident.to_string().as_str() {
             "depth_of" => {
                 if let Some(&[ir::OpcodeInput::Ident(ref ident)]) = opcode.input_names.as_deref() {
-                    if let Some(depth) = self
-                        .stack
-                        .iter()
-                        .rev()
-                        .position(|stack| stack.name == ident.to_string())
-                    {
-                        let has_generated_name = opcode.output_names.is_none();
-                        let span = opcode.span;
-                        let output_names = Self::to_vec_str_tokens(opcode.output_names.as_deref());
-                        let ident = if let Some(&[ref ident]) = opcode.output_names.as_deref() {
-                            ident.clone()
-                        } else {
-                            self.make_ident(span)
-                        };
-                        let depth = depth as Integer;
-                        self.stack.push(StackItem {
-                            ident: ident.clone(),
-                            name: ident.to_string(),
-                            has_generated_name,
-                            integer: Some(depth),
-                        });
-                        let script_ident = &self.script_ident;
-                        Ok(quote_spanned! {span=>
-                            let #ident = (#depth).to_data();
-                            #script_ident.push(bitcoin_cash_script::TaggedOp {
-                                src: #src.into(),
-                                op: (#depth).to_pushop(),
-                                input_names: None,
-                                output_names: #output_names,
-                            });
-                        })
+                    let (depth, _) = self
+                        .variant_states
+                        .find_item(ident)
+                        .map_err(|err| Error::new(opcode.span, err))?;
+                    let has_generated_name = opcode.output_names.is_none();
+                    let span = opcode.span;
+                    let output_names = Self::to_vec_str_tokens(opcode.output_names.as_deref());
+                    let ident = if let Some(&[ref ident]) = opcode.output_names.as_deref() {
+                        ident.clone()
                     } else {
-                        Err(Error::new(opcode.span, "Couldn't find stack item"))
-                    }
+                        self.make_ident(span)
+                    };
+                    let depth = depth as Integer;
+                    self.push(StackItem {
+                        ident: ident.clone(),
+                        name: ident.to_string(),
+                        has_generated_name,
+                        integer: Some(depth),
+                    });
+                    let script_ident = &self.script_ident;
+                    Ok(quote_spanned! {span=>
+                        let #ident = (#depth).to_data();
+                        #script_ident.push(bitcoin_cash_script::TaggedOp {
+                            src: #src.into(),
+                            op: (#depth).to_pushop(),
+                            input_names: None,
+                            output_names: #output_names,
+                        });
+                    })
                 } else {
-                    Err(Error::new(opcode.span, "Expected 1 parameter"))
+                    Err(Error::new(opcode.span, "Expected 1 variable name"))
                 }
             }
             "transmute" => {
-                if let Some(
-                    &[ir::OpcodeInput::Ident(ref ident), ref type_input],
-                ) = opcode.input_names.as_deref()
+                if let Some(&[ir::OpcodeInput::Ident(ref ident), ref type_input]) =
+                    opcode.input_names.as_deref()
                 {
                     let type_expr = match type_input {
                         ir::OpcodeInput::Expr(type_expr) => type_expr.to_token_stream(),
@@ -554,13 +575,11 @@ impl GenerateScript {
                                 "Input and output name must be the same",
                             ));
                         }
-                    };
-                    let ident_name = ident.to_string();
-                    let item = self
-                        .stack
-                        .iter()
-                        .find(|item| item.name == ident_name)
-                        .ok_or(Error::new(opcode.span, "Couldn't find stack item"))?;
+                    }
+                    let (_, item) = self
+                        .variant_states
+                        .find_item(ident)
+                        .map_err(|err| Error::new(opcode.span, err))?;
                     let item_ident = &item.ident;
                     Ok(quote_spanned! {span=>
                         let #item_ident = <#type_expr as Default>::default().to_data();
@@ -572,8 +591,129 @@ impl GenerateScript {
                     ))
                 }
             }
-            _ => Err(Error::new(opcode.span, "Unknown opcode/function")),
+            func => Err(Error::new(
+                opcode.span,
+                format!("Unknown opcode/function: {}", func),
+            )),
         }
+    }
+
+    fn run_if(&mut self, src: String, script_if: ir::ScriptIfStmt) -> Result<TokenStream, Error> {
+        let mut tokens = Vec::new();
+        tokens.push(self.run_opcode(src, script_if.if_opcode.clone())?);
+        let predicate_name = script_if
+            .if_opcode
+            .input_names
+            .as_ref()
+            .and_then(|input_names| input_names.get(0))
+            .and_then(|input_name| {
+                if let ir::OpcodeInput::Ident(ident) = input_name {
+                    Some(ident.to_string())
+                } else {
+                    None
+                }
+            })
+            .ok_or_else(|| {
+                Error::new(
+                    script_if.if_opcode.span,
+                    "Must provide variable name to `OP_IF`",
+                )
+            })?;
+        let stack_before = self.variant_states.clone();
+        self.variant_states
+            .predicate_atoms
+            .push(ir::VariantPredicateAtom {
+                var_name: predicate_name.clone(),
+                is_positive: true,
+            });
+        let predicate_held_if = self.variant_states.predicate_atoms.clone();
+
+        let mut then_tokens = Vec::new();
+        for stmt in script_if.then_stmts {
+            then_tokens.push(self.run_stmt(stmt)?);
+        }
+        if let Some(else_opcode) = script_if.else_opcode {
+            then_tokens.push(self.run_opcode(format!("{}", else_opcode.ident), else_opcode)?);
+        }
+        let mut stack_after_then = std::mem::replace(&mut self.variant_states, stack_before);
+        self.variant_states
+            .predicate_atoms
+            .push(ir::VariantPredicateAtom {
+                var_name: predicate_name.clone(),
+                is_positive: false,
+            });
+        let mut else_tokens = Vec::new();
+        for stmt in script_if.else_stmts {
+            else_tokens.push(self.run_stmt(stmt)?);
+        }
+        else_tokens.push(self.run_opcode(
+            format!("{}", script_if.endif_opcode.ident),
+            script_if.endif_opcode,
+        )?);
+        let predicate_held_else = self.variant_states.predicate_atoms.clone();
+        self.variant_states.predicate_atoms.pop().unwrap();
+        for (variant_name, stack) in self.variant_states.states.iter_mut() {
+            let held_if = stack.condition.holds(&predicate_held_if);
+            let held_else = stack.condition.holds(&predicate_held_else);
+            if held_if && !held_else {
+                std::mem::swap(
+                    stack_after_then.states.get_mut(variant_name).unwrap(),
+                    stack,
+                );
+            }
+        }
+
+        tokens.push(quote! {
+            #(#then_tokens)*
+            #(#else_tokens)*
+        });
+
+        Ok(tokens.into_iter().collect())
+    }
+
+    fn verify_item_name(
+        opcode_type: Opcode,
+        opcode: &ir::OpcodeStmt,
+        item: &StackItem,
+    ) -> Result<(), Error> {
+        if let Some(input_names) = &opcode.input_names {
+            if input_names.len() != 1 {
+                return Err(error_opcode(
+                    format!("Expected 1 argument, got {}.", input_names.len()),
+                    opcode_type,
+                    opcode.span,
+                ));
+            }
+            if input_names[0].to_string() != item.name {
+                return Err(error_opcode(
+                    format!(
+                        "Expected top altstack item named `{}`, but actual name is `{}`.",
+                        input_names[0], item.name,
+                    ),
+                    opcode_type,
+                    opcode.span,
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn update_item_name(
+        opcode_type: Opcode,
+        opcode: &ir::OpcodeStmt,
+        item: &mut StackItem,
+    ) -> Result<(), Error> {
+        if let Some(output_names) = &opcode.output_names {
+            if output_names.len() != 1 {
+                return Err(error_opcode(
+                    format!("Pushes 1 item, got {}.", output_names.len()),
+                    opcode_type,
+                    opcode.span,
+                ));
+            }
+            item.name = output_names[0].to_string();
+        }
+        Ok(())
     }
 
     fn to_vec_str_tokens(slice: Option<&[impl std::fmt::Display]>) -> TokenStream {
@@ -589,20 +729,24 @@ impl GenerateScript {
         }
     }
 
-    fn pop_stack(
-        stack: &mut Vec<StackItem>,
-        opcode: OpcodeType,
-        span: Span,
-    ) -> Result<StackItem, Error> {
-        stack.pop().ok_or(error_empty_stack(opcode, span))
+    fn pop(&mut self, opcode: Opcode, span: Span) -> Result<StackItem, Error> {
+        self.variant_states
+            .pop()
+            .map_err(|err| error_opcode(err, opcode, span))
     }
 
-    fn pop(&mut self, opcode: OpcodeType, span: Span) -> Result<StackItem, Error> {
-        Self::pop_stack(&mut self.stack, opcode, span)
+    fn pop_alt(&mut self, opcode: Opcode, span: Span) -> Result<StackItem, Error> {
+        self.variant_states
+            .pop_alt()
+            .map_err(|err| error_opcode(err, opcode, span))
     }
 
     fn push(&mut self, stack_item: StackItem) {
-        self.stack.push(stack_item)
+        self.variant_states.push(stack_item)
+    }
+
+    fn push_alt(&mut self, stack_item: StackItem) {
+        self.variant_states.push_alt(stack_item)
     }
 
     fn make_ident(&mut self, span: Span) -> syn::Ident {
@@ -612,6 +756,6 @@ impl GenerateScript {
     }
 }
 
-fn error_empty_stack(opcode: OpcodeType, span: Span) -> Error {
-    Error::new(span, format!("{:?} fails due to empty stack", opcode))
+fn error_opcode<D: std::fmt::Display>(msg: D, opcode: Opcode, span: Span) -> Error {
+    Error::new(span, format!("{:?}: {}", opcode, msg))
 }

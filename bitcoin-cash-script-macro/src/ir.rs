@@ -3,6 +3,7 @@ use quote::ToTokens;
 
 pub struct Script {
     pub input_struct: syn::Ident,
+    pub script_variants: Vec<ScriptVariant>,
     pub attrs: Vec<syn::Attribute>,
     pub vis: syn::Visibility,
     pub sig: syn::Signature,
@@ -10,22 +11,39 @@ pub struct Script {
     pub stmts: Vec<Stmt>,
 }
 
+pub struct ScriptVariant {
+    pub name: syn::Ident,
+    pub predicate: VariantPredicate,
+}
+
+#[derive(Clone)]
+pub struct VariantPredicate(pub Vec<VariantPredicateConjunction>);
+#[derive(Clone)]
+pub struct VariantPredicateConjunction(pub Vec<VariantPredicateAtom>);
+
+#[derive(Clone)]
+pub struct VariantPredicateAtom {
+    pub var_name: String,
+    pub is_positive: bool,
+}
+
 pub struct ScriptInput {
     pub ident: syn::Ident,
     pub ty: syn::Type,
+    pub variants: Option<Vec<syn::Ident>>,
 }
 
 #[derive(Clone)]
 pub enum Stmt {
-    Push(String, Push),
-    Opcode(String, Opcode),
-    ForLoop(ForLoop),
-    RustIf(RustIf),
-    ScriptIf(String, ScriptIf),
+    Push(String, PushStmt),
+    Opcode(String, OpcodeStmt),
+    ForLoop(ForLoopStmt),
+    RustIf(RustIfStmt),
+    ScriptIf(String, ScriptIfStmt),
 }
 
 #[derive(Clone)]
-pub struct Push {
+pub struct PushStmt {
     pub span: Span,
     pub expr: syn::Expr,
     pub output_name: Option<syn::Ident>,
@@ -38,7 +56,7 @@ pub enum OpcodeInput {
 }
 
 #[derive(Clone)]
-pub struct Opcode {
+pub struct OpcodeStmt {
     pub span: Span,
     pub ident: syn::Ident,
     pub input_names: Option<Vec<OpcodeInput>>,
@@ -46,7 +64,7 @@ pub struct Opcode {
 }
 
 #[derive(Clone)]
-pub struct ForLoop {
+pub struct ForLoopStmt {
     pub span: Span,
     pub attrs: Vec<syn::Attribute>,
     pub pat: syn::Pat,
@@ -55,7 +73,7 @@ pub struct ForLoop {
 }
 
 #[derive(Clone)]
-pub struct RustIf {
+pub struct RustIfStmt {
     pub span: Span,
     pub attrs: Vec<syn::Attribute>,
     pub cond: syn::Expr,
@@ -64,10 +82,10 @@ pub struct RustIf {
 }
 
 #[derive(Clone)]
-pub struct ScriptIf {
-    pub if_opcode: Opcode,
-    pub else_opcode: Option<Opcode>,
-    pub endif_opcode: Opcode,
+pub struct ScriptIfStmt {
+    pub if_opcode: OpcodeStmt,
+    pub else_opcode: Option<OpcodeStmt>,
+    pub endif_opcode: OpcodeStmt,
     pub then_stmts: Vec<Stmt>,
     pub else_stmts: Vec<Stmt>,
 }
@@ -81,8 +99,38 @@ impl std::fmt::Display for OpcodeInput {
     }
 }
 
+impl std::fmt::Display for VariantPredicateAtom {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(
+            fmt,
+            "{}{}",
+            if self.is_positive { "" } else { "!" },
+            self.var_name
+        )
+    }
+}
+
 impl std::fmt::Debug for OpcodeInput {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         write!(fmt, "{}", self)
+    }
+}
+
+impl VariantPredicate {
+    pub fn holds(&self, instantiations: &[VariantPredicateAtom]) -> bool {
+        if self.0.len() == 0 {
+            return true;
+        }
+        for conjunction in self.0.iter() {
+            let conjunction_holds = conjunction.0.iter().all(|atom| {
+                instantiations.iter().all(|inst| {
+                    inst.var_name != atom.var_name || inst.is_positive == atom.is_positive
+                })
+            });
+            if conjunction_holds {
+                return true;
+            }
+        }
+        false
     }
 }
