@@ -15,6 +15,7 @@ pub enum Function {
     SchnorrSign,
     ToDataSig,
     UnexpectedSplit,
+    Reverse,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -166,7 +167,7 @@ impl<'a> ByteArray<'a> {
                 function = Function::UnexpectedSplit;
                 (None, None)
             }
-            None => (None, None)
+            None => (None, None),
         };
         Ok((
             ByteArray {
