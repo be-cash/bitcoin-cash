@@ -318,8 +318,11 @@ mod tests {
         let cat = a.concat(b).concat(c);
         let hash = sha2::Sha256::digest(&cat.data);
         let hashed = cat.apply_function(hash.as_ref(), Function::Sha256);
-        let preimage = hashed.preimage.as_ref().expect("No preimage");
+        let hash_preimage = hashed.preimage.as_ref().expect("No hash_preimage");
         assert_eq!(hashed.data.as_ref(), hash.as_ref());
+        assert_eq!(hash_preimage.len(), 1);
+        assert_eq!(hash_preimage[0].data.as_ref(), b"ABC");
+        let preimage = hash_preimage[0].preimage.as_ref().expect("No preimage");
         assert_eq!(preimage[0].data.as_ref(), b"A");
         assert_eq!(preimage[0].preimage, None);
         assert_eq!(preimage[1].data.as_ref(), b"B");
@@ -341,17 +344,30 @@ mod tests {
         let outer_hash = sha2::Sha256::digest(&outer.data);
         let outer_hashed = outer.apply_function(outer_hash.as_ref(), Function::Sha256);
         assert_eq!(outer_hashed.data.as_ref(), outer_hash.as_ref());
-        let outer_preimage = outer_hashed.preimage.as_ref().expect("No preimage");
-        assert_eq!(outer_preimage.len(), 3);
-        assert_eq!(outer_preimage[0].data.as_ref(), b"C");
-        assert_eq!(outer_preimage[0].preimage, None);
-        assert_eq!(outer_preimage[1].data.as_ref(), inner_hash.as_ref());
-        assert!(outer_preimage[1].preimage.is_some());
-        assert_eq!(outer_preimage[2].data.as_ref(), b"D");
-        assert_eq!(outer_preimage[2].preimage, None);
 
-        let inner_preimage = outer_preimage[1].preimage.as_ref().expect("No preimage");
-        assert_eq!(inner_preimage.len(), 2);
+        let outer_preimage = outer_hashed.preimage.as_ref().expect("No preimage");
+
+        assert_eq!(outer_preimage.len(), 1);
+        let outer_preimage0 = &outer_preimage[0];
+        assert_eq!(
+            outer_preimage0.data.as_ref(),
+            [b"C", inner_hash.as_ref(), b"D"].concat().as_slice()
+        );
+        let outer_preimages = outer_preimage0.preimage.as_ref().expect("No preimage");
+        assert_eq!(outer_preimages.len(), 3);
+        assert_eq!(outer_preimages[0].preimage, None);
+        assert_eq!(outer_preimages[1].data.as_ref(), inner_hash.as_ref());
+        assert!(outer_preimages[1].preimage.is_some());
+        assert_eq!(outer_preimages[2].data.as_ref(), b"D");
+        assert_eq!(outer_preimages[2].preimage, None);
+
+        let inner_hash_preimage = outer_preimages[1].preimage.as_ref().expect("No preimage");
+        assert_eq!(inner_hash_preimage.len(), 1);
+        assert_eq!(inner_hash_preimage[0].data.as_ref(), b"AB");
+        let inner_preimage = inner_hash_preimage[0]
+            .preimage
+            .as_ref()
+            .expect("No preimage");
         assert_eq!(inner_preimage[0].data.as_ref(), b"A");
         assert_eq!(inner_preimage[0].preimage, None);
         assert_eq!(inner_preimage[1].data.as_ref(), b"B");
@@ -409,11 +425,14 @@ mod tests {
             assert_eq!(right_preimage[1].data.as_ref(), b"D");
             let right_preimage2 = right_preimage[0].preimage.as_ref().expect("No preimage");
             assert_eq!(right_preimage2[0].function, Function::Plain);
-            assert_eq!(right_preimage2[0].data.as_ref(), b"A");
-            assert_eq!(right_preimage2[0].preimage, None);
-            assert_eq!(right_preimage2[1].function, Function::Plain);
-            assert_eq!(right_preimage2[1].data.as_ref(), b"B");
-            assert_eq!(right_preimage2[1].preimage, None);
+            assert_eq!(right_preimage2[0].data.as_ref(), b"AB");
+            let right_preimage3 = right_preimage2[0].preimage.as_ref().expect("No preimage");
+            assert_eq!(right_preimage3[0].function, Function::Plain);
+            assert_eq!(right_preimage3[0].data.as_ref(), b"A");
+            assert_eq!(right_preimage3[0].preimage, None);
+            assert_eq!(right_preimage3[1].function, Function::Plain);
+            assert_eq!(right_preimage3[1].data.as_ref(), b"B");
+            assert_eq!(right_preimage3[1].preimage, None);
         }
 
         // test 2, split in middle of hash
