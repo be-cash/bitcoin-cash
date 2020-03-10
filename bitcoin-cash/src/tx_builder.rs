@@ -1,9 +1,7 @@
 use crate::error::Result;
 use crate::{
-    encode_bitcoin_code,
-    error::ErrorKind,
-    ops::{InputScript, Op, Ops, TaggedScript, TaggedScriptOps},
-    p2sh_script, Address, AddressType, ByteArray, Hash160, Hashed, Prefix, Script, SigHashFlags,
+    encode_bitcoin_code, error::ErrorKind, p2sh_script, Address, AddressType, ByteArray, Hash160,
+    Hashed, InputScript, Op, Ops, Prefix, Script, SigHashFlags, TaggedScript, TaggedScriptOps,
     TxInput, TxOutpoint, TxOutput, TxPreimage, UnhashedTx, MAX_SIGNATURE_SIZE,
 };
 use std::collections::HashMap;

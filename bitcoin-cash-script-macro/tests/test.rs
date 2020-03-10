@@ -1,8 +1,8 @@
-use bitcoin_cash_script::{ByteArray, Op, Opcode::*, Ops, TaggedOp};
+use bitcoin_cash::{ByteArray, Op, Opcode::*, Ops, TaggedOp};
 
 #[test]
 fn test_adding() {
-    #[bitcoin_cash_script_macro::script(Inputs)]
+    #[bitcoin_cash::script(Inputs)]
     fn script(_: ()) {
         6;
         5;
@@ -36,7 +36,7 @@ fn test_adding() {
 
 #[test]
 fn test_catting() {
-    #[bitcoin_cash_script_macro::script(Inputs)]
+    #[bitcoin_cash::script(Inputs)]
     fn script(_: ()) {
         b"A";
         b"B";
@@ -58,7 +58,7 @@ fn test_catting() {
 
 #[test]
 fn test_inputs() {
-    #[bitcoin_cash_script_macro::script(Inputs)]
+    #[bitcoin_cash::script(Inputs)]
     fn script(_: (), a: [u8; 1], b: [u8; 1]) {
         OP_CAT;
     }
@@ -79,7 +79,7 @@ fn test_inputs() {
 
 #[test]
 fn test_let() {
-    #[bitcoin_cash_script_macro::script(Inputs)]
+    #[bitcoin_cash::script(Inputs)]
     fn script(_: (), a: i32, b: i32) {
         let c = OP_ADD(a, b);
         let (d, e) = OP_DUP(c);
@@ -144,7 +144,7 @@ fn test_let() {
 
 #[test]
 fn test_if() {
-    #[bitcoin_cash_script_macro::script(Inputs)]
+    #[bitcoin_cash::script(Inputs)]
     fn script(_: (), a: i32, b: bool) {
         OP_IF(b);
         let _x = OP_1ADD(a);
@@ -180,7 +180,7 @@ fn test_params() {
         p3: i32,
     }
 
-    #[bitcoin_cash_script_macro::script(Inputs)]
+    #[bitcoin_cash::script(Inputs)]
     fn script(params: &Params, a: i32, b: bool, c: [u8; 32]) {
         let p2 = params.p2;
         let c = OP_CAT(c, p2);
@@ -237,7 +237,7 @@ fn test_params() {
 
 #[test]
 fn test_depth_of() {
-    #[bitcoin_cash_script_macro::script(Inputs)]
+    #[bitcoin_cash::script(Inputs)]
     fn script(_: ()) {
         let _a = 6;
         let _b = 5;
@@ -262,7 +262,7 @@ fn test_depth_of() {
 
 #[test]
 fn test_attributes() {
-    #[bitcoin_cash_script_macro::script(Inputs, A = "!p1", B = "p1")]
+    #[bitcoin_cash::script(Inputs, A = "!p1", B = "p1")]
     fn script(_: (), #[variant(A)] a: i32, #[variant(A, B)] b: i32, c: i32) {
         let p1 = OP_0NOTEQUAL(c);
         OP_IF(p1);
@@ -286,7 +286,7 @@ fn test_attributes() {
 
 #[test]
 fn test_generics() {
-    #[bitcoin_cash_script_macro::script(Inputs)]
+    #[bitcoin_cash::script(Inputs)]
     fn script<'a>(_: (), a: ByteArray<'a>) {
         let _4 = 4;
         let (b, c) = OP_SPLIT(a, _4);
@@ -307,7 +307,7 @@ fn test_generics() {
 
 #[test]
 fn test_generics_variants() {
-    #[bitcoin_cash_script_macro::script(Inputs, A = "!p1", B = "p1")]
+    #[bitcoin_cash::script(Inputs, A = "!p1", B = "p1")]
     fn script<'a>(
         _: (),
         #[variant(A)] a: ByteArray<'a>,
@@ -344,7 +344,7 @@ fn test_generics_variants() {
 
 #[test]
 fn test_placeholder() {
-    #[bitcoin_cash_script_macro::script(Inputs)]
+    #[bitcoin_cash::script(Inputs)]
     fn script(_: (), a: i32, b: i32, c: i32) {
         let (__, __, beer) = OP_ROT(a, __, __);
         OP_DROP(beer);

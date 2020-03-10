@@ -1,5 +1,5 @@
 use crate::{
-    encode_bitcoin_code, ops::Function, ByteArray, Hashed, Script, Sha256d, ToPreimages, TxOutpoint,
+    encode_bitcoin_code, ByteArray, Function, Hashed, Script, Sha256d, ToPreimages, TxOutpoint,
 };
 use bitflags::bitflags;
 use serde_derive::{Deserialize, Serialize};

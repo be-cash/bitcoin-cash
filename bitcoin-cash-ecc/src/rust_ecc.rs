@@ -1,7 +1,6 @@
 use bitcoin_cash::{
     error::{ErrorKind, Result, ResultExt},
-    ops::Function,
-    ByteArray, Pubkey, ECC,
+    ByteArray, Function, Pubkey, ECC,
 };
 use secp256k1::{Message, PublicKey, PublicKeyFormat, SecretKey, Signature};
 

@@ -1,7 +1,6 @@
 use crate::{
     error::{ErrorKind, Result},
-    ops::Function,
-    ByteArray,
+    ByteArray, Function,
 };
 
 use serde_derive::{Deserialize, Serialize};

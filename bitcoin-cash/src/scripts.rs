@@ -1,7 +1,6 @@
 use crate::{
-    ops::{Opcode::*, Ops},
-    Address, AddressType, ByteArray, Hashed, InputScriptBuilder, Pubkey, Script, SigHashFlags,
-    TxBuilder, TxOutput, TxPreimage,
+    Address, AddressType, ByteArray, Hashed, InputScriptBuilder, Opcode::*, Ops, Pubkey, Script,
+    SigHashFlags, TxBuilder, TxOutput, TxPreimage,
 };
 
 #[derive(Clone)]
@@ -10,7 +9,7 @@ pub struct P2PKHBuilder<'b> {
     pub sig_hash_flags: SigHashFlags,
 }
 
-#[bitcoin_cash_script_macro::script(P2PKHInputs)]
+#[crate::script(P2PKHInputs, crate = "crate")]
 pub fn p2pkh_script(address: &Address, sig: ByteArray<'static>, pubkey: Vec<u8>) {
     OP_DUP(pubkey);
     let pk_hashed = OP_HASH160(pubkey);
@@ -19,7 +18,7 @@ pub fn p2pkh_script(address: &Address, sig: ByteArray<'static>, pubkey: Vec<u8>)
     let success = OP_CHECKSIG(sig, pubkey);
 }
 
-#[bitcoin_cash_script_macro::script(P2SHInputs)]
+#[crate::script(P2SHInputs, crate = "crate")]
 pub fn p2sh_script(address: &Address, redeem_script: Vec<u8>) {
     let script_hashed = OP_HASH160(redeem_script);
     let script_hash = address.hash().as_slice();

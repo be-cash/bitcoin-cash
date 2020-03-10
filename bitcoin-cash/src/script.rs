@@ -1,5 +1,5 @@
 use crate::error::{Result, ScriptSerializeError};
-use crate::ops::{encoding_utils::encode_int, Op, Opcode, Ops};
+use crate::{encoding_utils::encode_int, Op, Opcode, Ops};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;

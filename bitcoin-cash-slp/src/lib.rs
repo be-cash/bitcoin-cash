@@ -1,8 +1,4 @@
-use bitcoin_cash::{
-    error,
-    ops::{Op, Opcode},
-    ByteArray, Hashed, Script, Sha256d, TxOutput,
-};
+use bitcoin_cash::{error, ByteArray, Hashed, Op, Opcode, Script, Sha256d, TxOutput};
 
 #[derive(Copy, Clone, Debug, Hash)]
 pub struct TokenId(Sha256d);
