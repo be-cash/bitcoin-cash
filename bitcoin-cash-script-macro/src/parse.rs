@@ -8,7 +8,7 @@ pub fn parse_script(
     attrs: syn::AttributeArgs,
     func: syn::ItemFn,
 ) -> Result<ir::Script, syn::Error> {
-    let (input_struct, script_variants) =
+    let (input_struct, crate_ident, script_variants) =
         parse_attrs(attrs).map_err(|msg| syn::Error::new(func.sig.span(), &msg))?;
     if let syn::ReturnType::Default = func.sig.output {
     } else {
@@ -19,6 +19,7 @@ pub fn parse_script(
     }
     Ok(ir::Script {
         input_struct,
+        crate_ident,
         script_variants,
         attrs: func.attrs,
         vis: func.vis,
@@ -62,7 +63,9 @@ fn single_path(path: &syn::Path) -> Result<syn::Ident, ()> {
     }
 }
 
-fn parse_attrs(attrs: syn::AttributeArgs) -> Result<(syn::Ident, Vec<ir::ScriptVariant>), String> {
+fn parse_attrs(
+    attrs: syn::AttributeArgs,
+) -> Result<(syn::Ident, Option<syn::Ident>, Vec<ir::ScriptVariant>), String> {
     if attrs.len() == 0 {
         return Err("Must provide at least input struct name".into());
     }
@@ -72,29 +75,43 @@ fn parse_attrs(attrs: syn::AttributeArgs) -> Result<(syn::Ident, Vec<ir::ScriptV
     } else {
         return Err("Invalid input struct name".into());
     };
-    let variants = attrs
-        .into_iter()
-        .skip(1)
-        .map(|attr| {
-            if let syn::NestedMeta::Meta(syn::Meta::NameValue(variant)) = attr {
-                Ok(ir::ScriptVariant {
-                    name: single_path(&variant.path).map_err(|_| "Variant cannot have a module")?,
+    let mut variants = Vec::new();
+    let mut crate_name = None;
+    for attr in attrs.into_iter().skip(1) {
+        if let syn::NestedMeta::Meta(syn::Meta::NameValue(variant)) = attr {
+            let name = single_path(&variant.path).map_err(|_| "Variant cannot have a module")?;
+            if &name.to_string() == "crate" {
+                crate_name = Some(syn::Ident::new(
+                    &parse_string_lit(&variant.lit)
+                        .ok_or_else(|| "Invalid crate name, must be string.".to_string())?,
+                    name.span(),
+                ));
+            } else {
+                variants.push(ir::ScriptVariant {
+                    name,
                     predicate: parse_predicate(&variant.lit)?,
                 })
-            } else {
-                Err("Invalid variant, must be of form `VariantName=\"conditions\"`".to_string())
             }
-        })
-        .collect::<Result<Vec<_>, String>>()?;
-    Ok((input_struct, variants))
+        } else {
+            return Err(
+                "Invalid variant, must be of form `VariantName=\"conditions\"`".to_string(),
+            );
+        }
+    }
+    Ok((input_struct, crate_name, variants))
+}
+
+fn parse_string_lit(lit: &syn::Lit) -> Option<String> {
+    if let syn::Lit::Str(predicate_str) = lit {
+        Some(predicate_str.value())
+    } else {
+        None
+    }
 }
 
 fn parse_predicate(predicate_lit: &syn::Lit) -> Result<ir::VariantPredicate, String> {
-    let predicate_str = if let syn::Lit::Str(predicate_str) = predicate_lit {
-        predicate_str.value()
-    } else {
-        return Err("Invalid predicate literal, must be string.".to_string());
-    };
+    let predicate_str = parse_string_lit(predicate_lit)
+        .ok_or_else(|| "Invalid predicate literal, must be string.".to_string())?;
     Ok(ir::VariantPredicate(
         predicate_str
             .split("||")
@@ -421,7 +438,6 @@ fn parse_op_if(stmts: Vec<ir::Stmt>) -> Result<Vec<ir::Stmt>, syn::Error> {
     }
     return Ok(new_stmts);
 }
-
 
 fn unexpected_error_msg<T>(token: impl Spanned + ToTokens, msg: &str) -> Result<T, syn::Error> {
     Err(syn::Error::new(

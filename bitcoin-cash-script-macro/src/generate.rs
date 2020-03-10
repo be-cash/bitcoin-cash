@@ -31,6 +31,11 @@ impl GenerateScript {
         let mut impl_pushops = Vec::with_capacity(script.inputs.len());
         let mut impl_types = Vec::with_capacity(script.inputs.len());
         let mut impl_names = Vec::with_capacity(script.inputs.len());
+        let crate_ident = script
+            .crate_ident
+            .as_ref()
+            .map(|ident| ident.to_token_stream())
+            .unwrap_or_else(|| quote! { bitcoin_cash });
         for variant in script.script_variants.iter() {
             self.variant_states.states.insert(
                 variant.name.clone(),
@@ -99,7 +104,7 @@ impl GenerateScript {
             }
         }
         for stmt in script.stmts {
-            new_stmts.push(self.run_stmt(stmt)?);
+            new_stmts.push(self.run_stmt(stmt, &crate_ident)?);
         }
         let attrs = script.attrs;
         let vis = script.vis;
@@ -226,16 +231,16 @@ impl GenerateScript {
         Ok(quote! {
             #input_struct_enum
 
-            impl #generics bitcoin_cash_script::Ops for #input_struct<#generics_idents> {
-                fn ops(&self) -> std::borrow::Cow<[bitcoin_cash_script::Op]> {
-                    use bitcoin_cash_script::BitcoinDataType;
+            impl #generics #crate_ident::Ops for #input_struct<#generics_idents> {
+                fn ops(&self) -> std::borrow::Cow<[#crate_ident::Op]> {
+                    use #crate_ident::BitcoinDataType;
                     #impl_ops.into()
                 }
             }
 
-            impl #generics bitcoin_cash_script::InputScript for #input_struct<#generics_idents> {
-                fn types(variant_name: Option<&str>) -> Vec<bitcoin_cash_script::DataType> {
-                    use bitcoin_cash_script::BitcoinDataType;
+            impl #generics #crate_ident::InputScript for #input_struct<#generics_idents> {
+                fn types(variant_name: Option<&str>) -> Vec<#crate_ident::DataType> {
+                    use #crate_ident::BitcoinDataType;
                     #impl_types
                 }
 
@@ -246,16 +251,20 @@ impl GenerateScript {
 
             #[allow(redundant_semicolon)]
             #(#attrs)*
-            #vis #sig -> bitcoin_cash_script::TaggedScript<#input_struct<#generics_idents>> {
-                use bitcoin_cash_script::BitcoinDataType;
+            #vis #sig -> #crate_ident::TaggedScript<#input_struct<#generics_idents>> {
+                use #crate_ident::BitcoinDataType;
                 let mut #script_ident = Vec::new();
                 #(#new_stmts)*
-                return bitcoin_cash_script::TaggedScript::new(#script_ident);
+                return #crate_ident::TaggedScript::new(#script_ident);
             }
         })
     }
 
-    fn run_stmt(&mut self, stmt: ir::Stmt) -> Result<TokenStream, Error> {
+    fn run_stmt(
+        &mut self,
+        stmt: ir::Stmt,
+        crate_ident: &TokenStream,
+    ) -> Result<TokenStream, Error> {
         match stmt {
             ir::Stmt::ForLoop(for_loop) => Err(Error::new(
                 for_loop.span,
@@ -265,13 +274,18 @@ impl GenerateScript {
                 if_stmt.span,
                 format!("`if` not implemented yet"),
             )),
-            ir::Stmt::Push(src, push) => self.run_push(src, push),
-            ir::Stmt::Opcode(src, opcode) => self.run_opcode(src, opcode),
-            ir::Stmt::ScriptIf(src, script_if) => self.run_if(src, script_if),
+            ir::Stmt::Push(src, push) => self.run_push(src, push, crate_ident),
+            ir::Stmt::Opcode(src, opcode) => self.run_opcode(src, opcode, crate_ident),
+            ir::Stmt::ScriptIf(src, script_if) => self.run_if(src, script_if, crate_ident),
         }
     }
 
-    fn run_push(&mut self, src: String, push: ir::PushStmt) -> Result<TokenStream, Error> {
+    fn run_push(
+        &mut self,
+        src: String,
+        push: ir::PushStmt,
+        crate_ident: &TokenStream,
+    ) -> Result<TokenStream, Error> {
         let has_generated_name = push.output_name.is_none();
         let span = push.span;
         let output_names = Self::to_vec_str_tokens(
@@ -295,7 +309,7 @@ impl GenerateScript {
         let expr = push.expr;
         Ok(quote_spanned! {span=>
             let #ident = (#expr).to_data();
-            #script_ident.push(bitcoin_cash_script::TaggedOp {
+            #script_ident.push(#crate_ident::TaggedOp {
                 src: #src.into(),
                 op: (#expr).to_pushop(),
                 input_names: None,
@@ -304,7 +318,12 @@ impl GenerateScript {
         })
     }
 
-    fn run_opcode(&mut self, src: String, opcode: ir::OpcodeStmt) -> Result<TokenStream, Error> {
+    fn run_opcode(
+        &mut self,
+        src: String,
+        opcode: ir::OpcodeStmt,
+        crate_ident: &TokenStream,
+    ) -> Result<TokenStream, Error> {
         use Opcode::*;
         let script_ident = self.script_ident.clone();
         let ident = &opcode.ident;
@@ -319,9 +338,9 @@ impl GenerateScript {
                 Self::update_item_name(opcode_type, &opcode, &mut item)?;
                 self.push_alt(item);
                 Ok(quote_spanned! {span=>
-                    #script_ident.push(bitcoin_cash_script::TaggedOp {
+                    #script_ident.push(#crate_ident::TaggedOp {
                         src: #src.into(),
-                        op: bitcoin_cash_script::Op::Code(#ident),
+                        op: #crate_ident::Op::Code(#ident),
                         input_names: #input_names,
                         output_names: #output_names,
                     });
@@ -333,9 +352,9 @@ impl GenerateScript {
                 Self::update_item_name(opcode_type, &opcode, &mut item)?;
                 self.variant_states.push(item);
                 Ok(quote_spanned! {span=>
-                    #script_ident.push(bitcoin_cash_script::TaggedOp {
+                    #script_ident.push(#crate_ident::TaggedOp {
                         src: #src.into(),
-                        op: bitcoin_cash_script::Op::Code(#ident),
+                        op: #crate_ident::Op::Code(#ident),
                         input_names: #input_names,
                         output_names: #output_names,
                     });
@@ -364,19 +383,24 @@ impl GenerateScript {
                 let ident = opcode.ident;
                 let input_name = stack_item.ident;
                 Ok(quote_spanned! {span=>
-                    bitcoin_cash_script::func::#ident(#input_name);
-                    #script_ident.push(bitcoin_cash_script::TaggedOp {
+                    #crate_ident::func::#ident(#input_name);
+                    #script_ident.push(#crate_ident::TaggedOp {
                         src: #src.into(),
-                        op: bitcoin_cash_script::Op::Code(#ident),
+                        op: #crate_ident::Op::Code(#ident),
                         input_names: #input_names,
                         output_names: #output_names,
                     });
                 })
             }
-            Some(&opcode_type) => {
-                self.run_other_opcode(src, opcode_type, opcode, input_names, output_names)
-            }
-            None => self.run_opcode_function(src, opcode),
+            Some(&opcode_type) => self.run_other_opcode(
+                src,
+                opcode_type,
+                opcode,
+                input_names,
+                output_names,
+                crate_ident,
+            ),
+            None => self.run_opcode_function(src, opcode, crate_ident),
         }
     }
 
@@ -387,6 +411,7 @@ impl GenerateScript {
         opcode: ir::OpcodeStmt,
         input_names: TokenStream,
         output_names: TokenStream,
+        crate_ident: &TokenStream,
     ) -> Result<TokenStream, Error> {
         let span = opcode.span;
         let behavior = opcode_type.behavior();
@@ -508,10 +533,10 @@ impl GenerateScript {
         let ident = opcode.ident;
         let script_ident = &self.script_ident;
         Ok(quote_spanned! {span=>
-            #output_let bitcoin_cash_script::func::#ident( #(#input_idents.clone()),* );
-            #script_ident.push(bitcoin_cash_script::TaggedOp {
+            #output_let #crate_ident::func::#ident( #(#input_idents.clone()),* );
+            #script_ident.push(#crate_ident::TaggedOp {
                 src: #src.into(),
-                op: bitcoin_cash_script::Op::Code(#ident),
+                op: #crate_ident::Op::Code(#ident),
                 input_names: #input_names,
                 output_names: #output_names,
             });
@@ -522,6 +547,7 @@ impl GenerateScript {
         &mut self,
         src: String,
         opcode: ir::OpcodeStmt,
+        crate_ident: &TokenStream,
     ) -> Result<TokenStream, Error> {
         match opcode.ident.to_string().as_str() {
             "depth_of" => {
@@ -548,7 +574,7 @@ impl GenerateScript {
                     let script_ident = &self.script_ident;
                     Ok(quote_spanned! {span=>
                         let #ident = (#depth).to_data();
-                        #script_ident.push(bitcoin_cash_script::TaggedOp {
+                        #script_ident.push(#crate_ident::TaggedOp {
                             src: #src.into(),
                             op: (#depth).to_pushop(),
                             input_names: None,
@@ -598,9 +624,14 @@ impl GenerateScript {
         }
     }
 
-    fn run_if(&mut self, src: String, script_if: ir::ScriptIfStmt) -> Result<TokenStream, Error> {
+    fn run_if(
+        &mut self,
+        src: String,
+        script_if: ir::ScriptIfStmt,
+        crate_ident: &TokenStream,
+    ) -> Result<TokenStream, Error> {
         let mut tokens = Vec::new();
-        tokens.push(self.run_opcode(src, script_if.if_opcode.clone())?);
+        tokens.push(self.run_opcode(src, script_if.if_opcode.clone(), crate_ident)?);
         let predicate_name = script_if
             .if_opcode
             .input_names
@@ -630,10 +661,14 @@ impl GenerateScript {
 
         let mut then_tokens = Vec::new();
         for stmt in script_if.then_stmts {
-            then_tokens.push(self.run_stmt(stmt)?);
+            then_tokens.push(self.run_stmt(stmt, crate_ident)?);
         }
         if let Some(else_opcode) = script_if.else_opcode {
-            then_tokens.push(self.run_opcode(format!("{}", else_opcode.ident), else_opcode)?);
+            then_tokens.push(self.run_opcode(
+                format!("{}", else_opcode.ident),
+                else_opcode,
+                crate_ident,
+            )?);
         }
         let mut stack_after_then = std::mem::replace(&mut self.variant_states, stack_before);
         self.variant_states
@@ -644,11 +679,12 @@ impl GenerateScript {
             });
         let mut else_tokens = Vec::new();
         for stmt in script_if.else_stmts {
-            else_tokens.push(self.run_stmt(stmt)?);
+            else_tokens.push(self.run_stmt(stmt, crate_ident)?);
         }
         else_tokens.push(self.run_opcode(
             format!("{}", script_if.endif_opcode.ident),
             script_if.endif_opcode,
+            crate_ident,
         )?);
         let predicate_held_else = self.variant_states.predicate_atoms.clone();
         self.variant_states.predicate_atoms.pop().unwrap();

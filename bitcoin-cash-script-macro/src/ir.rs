@@ -3,6 +3,7 @@ use quote::ToTokens;
 
 pub struct Script {
     pub input_struct: syn::Ident,
+    pub crate_ident: Option<syn::Ident>,
     pub script_variants: Vec<ScriptVariant>,
     pub attrs: Vec<syn::Attribute>,
     pub vis: syn::Visibility,
