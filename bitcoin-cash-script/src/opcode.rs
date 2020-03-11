@@ -2339,58 +2339,58 @@ pub mod func {
     }
 
     pub fn OP_1NEGATE() -> BitcoinInteger {
-        BitcoinInteger(-1)
+        BitcoinInteger(0)
     }
     pub fn OP_0() -> BitcoinInteger {
         BitcoinInteger(0)
     }
     pub fn OP_1() -> BitcoinInteger {
-        BitcoinInteger(1)
+        BitcoinInteger(0)
     }
     pub fn OP_2() -> BitcoinInteger {
-        BitcoinInteger(2)
+        BitcoinInteger(0)
     }
     pub fn OP_3() -> BitcoinInteger {
-        BitcoinInteger(3)
+        BitcoinInteger(0)
     }
     pub fn OP_4() -> BitcoinInteger {
-        BitcoinInteger(4)
+        BitcoinInteger(0)
     }
     pub fn OP_5() -> BitcoinInteger {
-        BitcoinInteger(5)
+        BitcoinInteger(0)
     }
     pub fn OP_6() -> BitcoinInteger {
-        BitcoinInteger(6)
+        BitcoinInteger(0)
     }
     pub fn OP_7() -> BitcoinInteger {
-        BitcoinInteger(7)
+        BitcoinInteger(0)
     }
     pub fn OP_8() -> BitcoinInteger {
-        BitcoinInteger(8)
+        BitcoinInteger(0)
     }
     pub fn OP_9() -> BitcoinInteger {
-        BitcoinInteger(9)
+        BitcoinInteger(0)
     }
     pub fn OP_10() -> BitcoinInteger {
-        BitcoinInteger(10)
+        BitcoinInteger(0)
     }
     pub fn OP_11() -> BitcoinInteger {
-        BitcoinInteger(11)
+        BitcoinInteger(0)
     }
     pub fn OP_12() -> BitcoinInteger {
-        BitcoinInteger(12)
+        BitcoinInteger(0)
     }
     pub fn OP_13() -> BitcoinInteger {
-        BitcoinInteger(13)
+        BitcoinInteger(0)
     }
     pub fn OP_14() -> BitcoinInteger {
-        BitcoinInteger(14)
+        BitcoinInteger(0)
     }
     pub fn OP_15() -> BitcoinInteger {
-        BitcoinInteger(15)
+        BitcoinInteger(0)
     }
     pub fn OP_16() -> BitcoinInteger {
-        BitcoinInteger(16)
+        BitcoinInteger(0)
     }
 
     pub fn OP_NOP() -> () {}
@@ -2454,7 +2454,7 @@ pub mod func {
         (item3, item4, item1, item2)
     }
     pub fn OP_DEPTH() -> BitcoinInteger {
-        BitcoinInteger(0x10d0_10d0)
+        BitcoinInteger(0)
     }
     pub fn OP_DROP<T>(item: T) {}
     pub fn OP_DUP<T: Clone>(item: T) -> (T, T) {
@@ -2479,95 +2479,94 @@ pub mod func {
     }
 
     pub fn OP_CAT(left: BitcoinByteArray, right: BitcoinByteArray) -> BitcoinByteArray {
-        BitcoinByteArray([&left.0[..], &right.0[..]][..].concat())
+        BitcoinByteArray(b"MOCK".as_ref().into())
     }
     pub fn OP_SPLIT(
         array: BitcoinByteArray,
         split_idx: BitcoinInteger,
     ) -> (BitcoinByteArray, BitcoinByteArray) {
         (
-            BitcoinByteArray(b"left".to_vec()),
-            BitcoinByteArray(b"right".to_vec()),
+            BitcoinByteArray(b"left".as_ref().into()),
+            BitcoinByteArray(b"right".as_ref().into()),
         )
     }
     pub fn OP_NUM2BIN(num: BitcoinInteger, byte_size: BitcoinInteger) -> BitcoinByteArray {
-        BitcoinByteArray(b"TODO".to_vec())
+        BitcoinByteArray(b"MOCK".as_ref().into())
     }
     pub fn OP_BIN2NUM(array: BitcoinByteArray) -> BitcoinInteger {
-        BitcoinInteger(0x10d0_10d0)
+        BitcoinInteger(0)
     }
     pub fn OP_SIZE(array: BitcoinByteArray) -> (BitcoinByteArray, BitcoinInteger) {
-        let size = BitcoinInteger(array.0.len() as i32);
-        (array, size)
+        (array, BitcoinInteger(0))
     }
     pub fn OP_AND(array1: BitcoinByteArray, array2: BitcoinByteArray) -> BitcoinByteArray {
-        BitcoinByteArray(b"TODO".to_vec())
+        BitcoinByteArray(b"MOCK".as_ref().into())
     }
     pub fn OP_OR(array1: BitcoinByteArray, array2: BitcoinByteArray) -> BitcoinByteArray {
-        BitcoinByteArray(b"TODO".to_vec())
+        BitcoinByteArray(b"MOCK".as_ref().into())
     }
     pub fn OP_XOR(array1: BitcoinByteArray, array2: BitcoinByteArray) -> BitcoinByteArray {
-        BitcoinByteArray(b"TODO".to_vec())
+        BitcoinByteArray(b"MOCK".as_ref().into())
     }
-    pub fn OP_EQUAL<T: Eq>(item1: T, item2: T) -> BitcoinBoolean {
-        BitcoinBoolean(item1 == item2)
+    pub fn OP_EQUAL<T>(item1: T, item2: T) -> BitcoinBoolean {
+        BitcoinBoolean(true)
     }
-    pub fn OP_EQUALVERIFY<T: Eq>(item1: T, item2: T) {}
+    pub fn OP_EQUALVERIFY<T>(item1: T, item2: T) {}
 
     pub fn OP_1ADD(num: BitcoinInteger) -> BitcoinInteger {
-        BitcoinInteger(num.0 + 1)
+        BitcoinInteger(0)
     }
     pub fn OP_1SUB(num: BitcoinInteger) -> BitcoinInteger {
-        BitcoinInteger(num.0 - 1)
+        BitcoinInteger(0)
     }
     pub fn OP_NEGATE(num: BitcoinInteger) -> BitcoinInteger {
-        BitcoinInteger(-num.0)
+        BitcoinInteger(0)
     }
     pub fn OP_ABS(num: BitcoinInteger) -> BitcoinInteger {
-        BitcoinInteger(num.0.abs())
+        BitcoinInteger(0)
     }
     pub fn OP_NOT(boolean: BitcoinBoolean) -> BitcoinBoolean {
-        BitcoinBoolean(!boolean.0)
+        BitcoinBoolean(true)
     }
     pub fn OP_0NOTEQUAL(num: BitcoinInteger) -> BitcoinBoolean {
-        BitcoinBoolean(num.0 != 0)
+        BitcoinBoolean(true)
     }
     pub fn OP_ADD(num1: BitcoinInteger, num2: BitcoinInteger) -> BitcoinInteger {
-        BitcoinInteger(num1.0 + num2.0)
+        BitcoinInteger(0)
     }
     pub fn OP_SUB(num1: BitcoinInteger, num2: BitcoinInteger) -> BitcoinInteger {
-        BitcoinInteger(num1.0 - num2.0)
+        BitcoinInteger(0)
     }
     pub fn OP_DIV(num1: BitcoinInteger, num2: BitcoinInteger) -> BitcoinInteger {
-        BitcoinInteger(0x10d0_10d0)
+        BitcoinInteger(0)
     }
     pub fn OP_MOD(num1: BitcoinInteger, num2: BitcoinInteger) -> BitcoinInteger {
-        BitcoinInteger(0x10d0_10d0)
+        BitcoinInteger(0)
     }
     pub fn OP_BOOLAND(boolean1: BitcoinBoolean, boolean2: BitcoinBoolean) -> BitcoinBoolean {
-        BitcoinBoolean(boolean1.0 && boolean2.0)
+        BitcoinBoolean(true)
     }
     pub fn OP_BOOLOR(boolean1: BitcoinBoolean, boolean2: BitcoinBoolean) -> BitcoinBoolean {
-        BitcoinBoolean(boolean1.0 && boolean2.0)
+        BitcoinBoolean(true)
     }
     pub fn OP_NUMEQUAL(num1: BitcoinInteger, num2: BitcoinInteger) -> BitcoinBoolean {
-        BitcoinBoolean(num1.0 == num2.0)
+        BitcoinBoolean(true)
     }
     pub fn OP_NUMEQUALVERIFY(num1: BitcoinInteger, num2: BitcoinInteger) {}
     pub fn OP_NUMNOTEQUAL(num1: BitcoinInteger, num2: BitcoinInteger) -> BitcoinBoolean {
-        BitcoinBoolean(num1.0 != num2.0)
+        BitcoinBoolean(true)
     }
     pub fn OP_LESSTHAN(num1: BitcoinInteger, num2: BitcoinInteger) -> BitcoinBoolean {
-        BitcoinBoolean(num1.0 < num2.0)
+        BitcoinBoolean(true)
     }
     pub fn OP_GREATERTHAN(num1: BitcoinInteger, num2: BitcoinInteger) -> BitcoinBoolean {
-        BitcoinBoolean(num1.0 > num2.0)
+        BitcoinBoolean(true)
     }
     pub fn OP_LESSTHANOREQUAL(num1: BitcoinInteger, num2: BitcoinInteger) -> BitcoinBoolean {
-        BitcoinBoolean(num1.0 <= num2.0)
+        BitcoinBoolean(true)
     }
     pub fn OP_GREATERTHANOREQUAL(num1: BitcoinInteger, num2: BitcoinInteger) -> BitcoinBoolean {
-        BitcoinBoolean(num1.0 >= num2.0)
+        BitcoinBoolean(true)
     }
     pub fn OP_MIN(num1: BitcoinInteger, num2: BitcoinInteger) -> BitcoinInteger {
         BitcoinInteger(0)
@@ -2580,22 +2579,22 @@ pub mod func {
         num_min: BitcoinInteger,
         num_max: BitcoinInteger,
     ) -> BitcoinBoolean {
-        BitcoinBoolean(num1.0 >= num_min.0 && num1.0 <= num_max.0)
+        BitcoinBoolean(true)
     }
     pub fn OP_RIPEMD160(array: BitcoinByteArray) -> BitcoinByteArray {
-        BitcoinByteArray(b"TODO".to_vec())
+        BitcoinByteArray(b"MOCK".as_ref().into())
     }
     pub fn OP_SHA1(array: BitcoinByteArray) -> BitcoinByteArray {
-        BitcoinByteArray(b"TODO".to_vec())
+        BitcoinByteArray(b"MOCK".as_ref().into())
     }
     pub fn OP_SHA256(array: BitcoinByteArray) -> BitcoinByteArray {
-        BitcoinByteArray(b"TODO".to_vec())
+        BitcoinByteArray(b"MOCK".as_ref().into())
     }
     pub fn OP_HASH160(array: BitcoinByteArray) -> BitcoinByteArray {
-        BitcoinByteArray(b"TODO".to_vec())
+        BitcoinByteArray(b"MOCK".as_ref().into())
     }
     pub fn OP_HASH256(array: BitcoinByteArray) -> BitcoinByteArray {
-        BitcoinByteArray(b"TODO".to_vec())
+        BitcoinByteArray(b"MOCK".as_ref().into())
     }
     pub fn OP_CODESEPARATOR() {}
     pub fn OP_CHECKSIG(sig: BitcoinByteArray, pubkey: BitcoinByteArray) -> BitcoinBoolean {
@@ -2603,10 +2602,10 @@ pub mod func {
     }
     pub fn OP_CHECKSIGVERIFY(sig: BitcoinByteArray, pubkey: BitcoinByteArray) {}
     pub fn OP_CHECKLOCKTIMEVERIFY(locktime: BitcoinInteger) -> BitcoinInteger {
-        locktime
+        BitcoinInteger(0)
     }
     pub fn OP_CHECKSEQUENCEVERIFY(sequence: BitcoinInteger) -> BitcoinInteger {
-        sequence
+        BitcoinInteger(0)
     }
     pub fn OP_CHECKDATASIG(
         sig: BitcoinByteArray,
@@ -2622,7 +2621,7 @@ pub mod func {
     ) {
     }
     pub fn OP_REVERSEBYTES(array: BitcoinByteArray) -> BitcoinByteArray {
-        BitcoinByteArray(b"TODO".to_vec())
+        BitcoinByteArray(b"MOCK".as_ref().into())
     }
 }
 
