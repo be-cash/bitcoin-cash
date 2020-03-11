@@ -9,6 +9,7 @@ lazy_static! {
     pub static ref MAP_NAME_TO_ENUM: HashMap<String, Opcode> = {
         let mut map = HashMap::new();
         map.insert("OP_0".to_string(), Opcode::OP_0);
+        map.insert("OP_1NEGATE".to_string(), Opcode::OP_1NEGATE);
         for code in 0x51..Opcode::FIRST_UNDEFINED_OP_VALUE as u8 {
             let opcode: Opcode =
                 num::FromPrimitive::from_u8(code).expect(&format!("Invalid opcode {}", code));
