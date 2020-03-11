@@ -254,6 +254,16 @@ pub mod func {
         BitcoinInteger(16)
     }
 
+    pub fn OP_NOP() -> () {}
+    pub fn OP_NOP1() -> () {}
+    pub fn OP_NOP4() -> () {}
+    pub fn OP_NOP5() -> () {}
+    pub fn OP_NOP6() -> () {}
+    pub fn OP_NOP7() -> () {}
+    pub fn OP_NOP8() -> () {}
+    pub fn OP_NOP9() -> () {}
+    pub fn OP_NOP10() -> () {}
+
     pub fn OP_IF<T>(stack_item: T) {}
     pub fn OP_ELSE() {}
     pub fn OP_ENDIF() {}
