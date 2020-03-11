@@ -493,7 +493,7 @@ impl Opcode {
         match self {
             OP_RESERVED | OP_RESERVED1 | OP_RESERVED2 | OP_MUL | OP_2MUL | OP_2DIV | OP_INVERT
             | OP_LSHIFT | OP_RSHIFT | OP_VER | OP_VERIF | OP_VERNOTIF => true,
-            opcode => opcode as u8 >= FIRST_UNDEFINED_OP_VALUE as u8,
+            _ => false,
         }
     }
 
