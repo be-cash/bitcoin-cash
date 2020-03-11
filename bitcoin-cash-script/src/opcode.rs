@@ -466,7 +466,7 @@ pub mod func {
     pub fn OP_CHECKLOCKTIMEVERIFY(locktime: BitcoinInteger) -> BitcoinInteger {
         locktime
     }
-    pub fn OP_CHECKSEQUENCEVERIFY(sequence: BitcoinByteArray) -> BitcoinByteArray {
+    pub fn OP_CHECKSEQUENCEVERIFY(sequence: BitcoinInteger) -> BitcoinInteger {
         sequence
     }
     pub fn OP_CHECKDATASIG(
@@ -684,6 +684,7 @@ impl Opcode {
             OP_FROMALTSTACK => u(&[], &[T], &[Added]),
 
             OP_CHECKLOCKTIMEVERIFY => u(&[Integer], &[Integer], &[Observed]),
+            OP_CHECKSEQUENCEVERIFY => u(&[Integer], &[Integer], &[Observed]),
 
             OP_IFDUP | OP_CHECKMULTISIG | OP_CHECKMULTISIGVERIFY => {
                 panic!("Opcode behavior cannot be expressed in OpcodeBehavior")
