@@ -420,8 +420,12 @@ pub mod func {
     pub fn OP_GREATERTHANOREQUAL(num1: BitcoinInteger, num2: BitcoinInteger) -> BitcoinBoolean {
         BitcoinBoolean(num1.0 >= num2.0)
     }
-    pub fn OP_MIN() {}
-    pub fn OP_MAX() {}
+    pub fn OP_MIN(num1: BitcoinInteger, num2: BitcoinInteger) -> BitcoinInteger {
+        BitcoinInteger(0)
+    }
+    pub fn OP_MAX(num1: BitcoinInteger, num2: BitcoinInteger) -> BitcoinInteger {
+        BitcoinInteger(0)
+    }
     pub fn OP_WITHIN(
         num1: BitcoinInteger,
         num_min: BitcoinInteger,
