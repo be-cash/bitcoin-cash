@@ -497,6 +497,14 @@ impl Opcode {
         }
     }
 
+    pub fn retains_input(self) -> bool {
+        use Opcode::*;
+        match self {
+            OP_SIZE | OP_CHECKLOCKTIMEVERIFY | OP_CHECKSEQUENCEVERIFY => true,
+            _ => false,
+        }
+    }
+
     pub fn behavior(self) -> OpcodeBehavior {
         use DataType::*;
         use Opcode::*;

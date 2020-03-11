@@ -477,13 +477,28 @@ impl GenerateScript {
                 let name = ident.to_string();
                 output_idents.push(new_ident.clone());
                 if &name == "__" {
-                    if let Some(output_order) = behavior.output_order {
+                    if opcode_type.retains_input() {
+                        let new_idx = 0;
+                        self.push(StackItem {
+                            ident: new_ident,
+                            ..input_items[new_idx].clone()
+                        });
+                        continue;
+                    } else if let Some(output_order) = behavior.output_order {
                         let new_idx = output_order[idx];
                         self.push(StackItem {
                             ident: new_ident,
                             ..input_items[new_idx].clone()
                         });
                         continue;
+                    } else {
+                        return Err(Error::new(
+                            opcode.span,
+                            format!(
+                                "Cannot use `__` as output placeholder for opcode {:?}",
+                                opcode_type
+                            ),
+                        ));
                     }
                 }
                 self.push(StackItem {
@@ -509,12 +524,20 @@ impl GenerateScript {
                     for _ in 0..behavior.output_types.len() {
                         let ident = self.make_ident(span);
                         output_idents.push(ident.clone());
-                        self.push(StackItem {
-                            name: ident.to_string(),
-                            ident,
-                            has_generated_name: true,
-                            integer: None,
-                        });
+                        if opcode_type.retains_input() {
+                            let new_idx = 0;
+                            self.push(StackItem {
+                                ident,
+                                ..input_items[new_idx].clone()
+                            });
+                        } else {
+                            self.push(StackItem {
+                                name: ident.to_string(),
+                                ident,
+                                has_generated_name: true,
+                                integer: None,
+                            });
+                        }
                     }
                 }
             }
