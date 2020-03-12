@@ -11,10 +11,10 @@ pub enum DataType {
 pub type Integer = i32;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum StackItemData<'a> {
+pub enum StackItemData {
     Integer(Integer),
     Boolean(bool),
-    ByteArray(ByteArray<'a>),
+    ByteArray(ByteArray),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -22,7 +22,7 @@ pub struct BitcoinInteger(pub Integer);
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BitcoinBoolean(pub bool);
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct BitcoinByteArray(pub Vec<u8>);
+pub struct BitcoinByteArray(pub ByteArray);
 
 pub trait BitcoinDataType {
     type Type;
@@ -58,35 +58,42 @@ impl BitcoinDataType for bool {
 impl BitcoinDataType for [u8] {
     type Type = BitcoinByteArray;
     fn to_data(&self) -> Self::Type {
-        BitcoinByteArray(self.to_vec())
+        BitcoinByteArray(self.into())
     }
     fn to_pushop(&self) -> Op {
-        Op::PushByteArray(self.to_vec().into())
+        Op::PushByteArray {
+            array: self.to_vec().into(),
+            is_minimal: true,
+        }
     }
     fn to_data_type(&self) -> DataType {
         DataType::ByteArray(None)
     }
 }
-impl<'a> BitcoinDataType for ByteArray<'a> {
+impl BitcoinDataType for ByteArray {
     type Type = BitcoinByteArray;
     fn to_data(&self) -> Self::Type {
-        BitcoinByteArray(self.data.clone().into_owned())
+        BitcoinByteArray(self.clone())
     }
     fn to_pushop(&self) -> Op {
-        Op::PushByteArray(self.to_owned_array())
+        Op::PushByteArray {
+            array: self.clone(),
+            is_minimal: true,
+        }
     }
     fn to_data_type(&self) -> DataType {
-        DataType::ByteArray(Some(self.data.len()))
+        DataType::ByteArray(Some(self.len()))
     }
 }
 
-impl Into<StackItemData<'static>> for Op {
-    fn into(self) -> StackItemData<'static> {
-        match self {
+impl From<Op> for StackItemData {
+    fn from(op: Op) -> StackItemData {
+        match op {
             Op::Code(_) => unimplemented!(),
+            Op::Invalid(_) => unimplemented!(),
             Op::PushBoolean(boolean) => StackItemData::Boolean(boolean),
             Op::PushInteger(int) => StackItemData::Integer(int),
-            Op::PushByteArray(array) => StackItemData::ByteArray(array.to_owned_array()),
+            Op::PushByteArray {array, ..} => StackItemData::ByteArray(array),
         }
     }
 }

@@ -49,7 +49,7 @@ pub struct OpcodeBehavior {
 ///   address: Address<'static>,
 /// }
 /// #[bitcoin_cash::script(P2pkhInputs)]
-/// fn p2pkh_script<'a>(params: &Params, signature: ByteArray<'a>, public_key: ByteArray<'a>) {
+/// fn p2pkh_script(params: &Params, signature: ByteArray, public_key: ByteArray) {
 ///   OP_DUP(public_key);
 ///   let pkh = OP_HASH160(public_key);
 ///   let address = { params.address.hash().as_slice() };
@@ -2016,7 +2016,7 @@ pub enum Opcode {
     /// # use hex_literal::hex;
     /// # use bitcoin_cash::{Opcode::*, ByteArray};
     /// #[bitcoin_cash::script(P2PKInputs)]
-    /// fn p2pk<'a>(_: (), signature: ByteArray<'a>) {
+    /// fn p2pk(_: (), signature: ByteArray) {
     ///   let public_key = hex!("0201961ef44067e870a9b1684041929caffad57eae6bbc79dd785320d53231f519");
     ///
     ///   // check if `signature` signs current sighash for `public_key`
@@ -2039,7 +2039,7 @@ pub enum Opcode {
     /// # use hex_literal::hex;
     /// # use bitcoin_cash::{Opcode::*, ByteArray};
     /// #[bitcoin_cash::script(P2PKInputs)]
-    /// fn p2pk<'a>(_: (), signature: ByteArray<'a>) {
+    /// fn p2pk(_: (), signature: ByteArray) {
     ///   let public_key = hex!("0201961ef44067e870a9b1684041929caffad57eae6bbc79dd785320d53231f519");
     ///
     ///   // verify `signature` signs current sighash for `public_key`

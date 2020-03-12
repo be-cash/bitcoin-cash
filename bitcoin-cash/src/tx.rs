@@ -1,5 +1,4 @@
-use crate::Script;
-use crate::Sha256d;
+use crate::{Script, Sha256d, ByteArray, encode_bitcoin_code, error::Result};
 use serde_derive::{Deserialize, Serialize};
 
 pub const DEFAULT_SEQUENCE: u32 = 0xffff_ffff;
@@ -12,52 +11,33 @@ pub struct TxOutpoint {
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-pub struct TxInput<'a> {
+pub struct TxInput {
     pub prev_out: TxOutpoint,
-    pub script: Script<'a>,
+    pub script: Script,
     pub sequence: u32,
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-pub struct TxOutput<'a> {
+pub struct TxOutput {
     pub value: u64,
-    pub script: Script<'a>,
+    pub script: Script,
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
-pub struct UnhashedTx<'a> {
+pub struct UnhashedTx {
     pub version: i32,
-    pub inputs: Vec<TxInput<'a>>,
-    pub outputs: Vec<TxOutput<'a>>,
+    pub inputs: Vec<TxInput>,
+    pub outputs: Vec<TxOutput>,
     pub lock_time: u32,
 }
 
-impl TxOutput<'_> {
-    pub fn to_owned_output(&self) -> TxOutput<'static> {
-        TxOutput {
-            value: self.value,
-            script: self.script.to_owned_script(),
-        }
-    }
+impl TxInput {
+
 }
 
-impl TxInput<'_> {
-    pub fn to_owned_input(&self) -> TxInput<'static> {
-        TxInput {
-            prev_out: self.prev_out.clone(),
-            script: self.script.to_owned_script(),
-            sequence: self.sequence,
-        }
-    }
-}
-
-impl UnhashedTx<'_> {
-    pub fn to_owned_tx(&self) -> UnhashedTx<'static> {
-        UnhashedTx {
-            version: self.version,
-            inputs: self.inputs.iter().map(TxInput::to_owned_input).collect(),
-            outputs: self.outputs.iter().map(TxOutput::to_owned_output).collect(),
-            lock_time: self.lock_time,
-        }
+impl TxOutput {
+    pub fn serialize(&self) -> Result<ByteArray> {
+        let value = ByteArray::new("value", encode_bitcoin_code(&self.value)?);
+        Ok(value.concat(self.script.serialize()?.named("script")))
     }
 }

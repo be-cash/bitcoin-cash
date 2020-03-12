@@ -1,6 +1,6 @@
 use bitcoin_cash::{error, ByteArray, Hashed, Op, Opcode, Script, Sha256d, TxOutput};
 
-#[derive(Copy, Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash)]
 pub struct TokenId(Sha256d);
 
 #[derive(Copy, Clone, Debug, Hash)]
@@ -20,26 +20,41 @@ pub fn slp_send_output(
     slp_token_type: SlpTokenType,
     token_id: &TokenId,
     output_amounts: &[u64],
-) -> TxOutput<'static> {
+) -> TxOutput {
     let mut ops = vec![
         Op::Code(Opcode::OP_RETURN),
-        Op::PushByteArray(ByteArray::from_slice("lokad_id", b"SLP\0")),
-        Op::PushByteArray(ByteArray::new("token_type", vec![slp_token_type as u8])),
-        Op::PushByteArray(ByteArray::new(
-            "transaction_type",
-            SlpTxType::SEND.to_string().into_bytes(),
-        )),
-        Op::PushByteArray(ByteArray::new("token_id", token_id.to_vec())),
+        Op::PushByteArray {
+            array: ByteArray::from_slice("lokad_id", b"SLP\0"),
+            is_minimal: false,
+        },
+        Op::PushByteArray {
+            array: ByteArray::new("token_type", vec![slp_token_type as u8]),
+            is_minimal: false,
+        },
+        Op::PushByteArray {
+            array: ByteArray::new(
+                "transaction_type",
+                SlpTxType::SEND.to_string().into_bytes(),
+            ),
+            is_minimal: false,
+        },
+        Op::PushByteArray {
+            array: ByteArray::new("token_id", token_id.to_vec()),
+            is_minimal: false,
+        },
     ];
     for (idx, &output_amount) in output_amounts.iter().enumerate() {
-        ops.push(Op::PushByteArray(ByteArray::new(
-            format!("token_output_quantity{}", idx + 1),
-            output_amount.to_be_bytes().to_vec(),
-        )));
+        ops.push(Op::PushByteArray {
+            array: ByteArray::new(
+                format!("token_output_quantity{}", idx + 1),
+                output_amount.to_be_bytes().to_vec(),
+            ),
+            is_minimal: false,
+        });
     }
     TxOutput {
         value: 0,
-        script: Script::new(ops.into(), false),
+        script: Script::new(ops),
     }
 }
 

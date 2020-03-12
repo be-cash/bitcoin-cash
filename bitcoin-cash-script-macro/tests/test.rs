@@ -47,8 +47,14 @@ fn test_catting() {
     assert_eq!(
         script(()).ops().as_ref(),
         &[
-            Op::PushByteArray(ByteArray::from_slice_unnamed(b"A")),
-            Op::PushByteArray(ByteArray::from_slice_unnamed(b"B")),
+            Op::PushByteArray {
+                array: ByteArray::from_slice_unnamed(b"A"),
+                is_minimal: true,
+            },
+            Op::PushByteArray {
+                array: ByteArray::from_slice_unnamed(b"B"),
+                is_minimal: true,
+            },
             Op::Code(OP_TUCK),
             Op::Code(OP_CAT),
             Op::Code(OP_CAT),
@@ -71,8 +77,14 @@ fn test_inputs() {
         .ops()
         .as_ref(),
         &[
-            Op::PushByteArray(ByteArray::from_slice_unnamed(b"A")),
-            Op::PushByteArray(ByteArray::from_slice_unnamed(b"B")),
+            Op::PushByteArray {
+                array: ByteArray::from_slice_unnamed(b"A"),
+                is_minimal: true,
+            },
+            Op::PushByteArray {
+                array: ByteArray::from_slice_unnamed(b"B"),
+                is_minimal: true,
+            },
         ],
     );
 }
@@ -214,7 +226,10 @@ fn test_params() {
     assert_eq!(
         script(&params).ops().as_ref(),
         &[
-            Op::PushByteArray(params.p2.into()),
+            Op::PushByteArray {
+                array: params.p2.into(),
+                is_minimal: true,
+            },
             Op::Code(OP_CAT),
             Op::Code(OP_BIN2NUM),
             Op::PushInteger(params.p1),
@@ -287,7 +302,7 @@ fn test_attributes() {
 #[test]
 fn test_generics() {
     #[bitcoin_cash::script(Inputs)]
-    fn script<'a>(_: (), a: ByteArray<'a>) {
+    fn script(_: (), a: ByteArray) {
         let _4 = 4;
         let (b, c) = OP_SPLIT(a, _4);
     }
@@ -301,18 +316,21 @@ fn test_generics() {
         }
         .ops()
         .as_ref(),
-        &[Op::PushByteArray(ByteArray::from_slice("a", b"")),],
+        &[Op::PushByteArray {
+            array: ByteArray::from_slice("a", b""),
+            is_minimal: true,
+        }],
     );
 }
 
 #[test]
-fn test_generics_variants() {
+fn test_variants() {
     #[bitcoin_cash::script(Inputs, A = "!p1", B = "p1")]
-    fn script<'a>(
+    fn script(
         _: (),
-        #[variant(A)] a: ByteArray<'a>,
-        #[variant(A, B)] b: ByteArray<'a>,
-        c: ByteArray<'a>,
+        #[variant(A)] a: ByteArray,
+        #[variant(A, B)] b: ByteArray,
+        c: ByteArray,
     ) {
         let empty_str = b"";
         let p1 = OP_EQUAL(c, empty_str);

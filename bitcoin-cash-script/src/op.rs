@@ -3,7 +3,11 @@ use crate::{ByteArray, Opcode};
 #[derive(Clone, Eq, PartialEq)]
 pub enum Op {
     Code(Opcode),
-    PushByteArray(ByteArray<'static>),
+    Invalid(u8),
+    PushByteArray {
+        array: ByteArray,
+        is_minimal: bool,
+    },
     PushBoolean(bool),
     PushInteger(i32),
 }
@@ -12,7 +16,8 @@ impl std::fmt::Display for Op {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match self {
             Op::Code(code) => write!(f, "{:?}", code),
-            Op::PushByteArray(array) => write!(f, "0x{:?}", hex::encode(&array.data)),
+            Op::Invalid(code) => write!(f, "{:02x}", code),
+            Op::PushByteArray {array, ..} => write!(f, "0x{:?}", hex::encode(&array)),
             Op::PushBoolean(boolean) => {
                 write!(f, "{}", if *boolean { "OP_TRUE" } else { "OP_FALSE" })
             }
@@ -25,10 +30,11 @@ impl std::fmt::Debug for Op {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         match self {
             Op::Code(code) => write!(f, "Code({:?})", code),
-            Op::PushByteArray(array) => write!(
+            Op::Invalid(code) => write!(f, "Invalid(0x{:02x})", code),
+            Op::PushByteArray {array, ..} => write!(
                 f,
                 "PushByteArray(hex!({:?}).to_vec())",
-                hex::encode(&array.data)
+                hex::encode(&array)
             ),
             Op::PushBoolean(boolean) => write!(f, "PushBoolean({:?})", boolean),
             Op::PushInteger(int) => write!(f, "PushInteger({})", int),

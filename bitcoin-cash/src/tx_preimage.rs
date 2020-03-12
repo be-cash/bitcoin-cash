@@ -1,5 +1,5 @@
 use crate::{
-    encode_bitcoin_code, ByteArray, Function, Hashed, Script, Sha256d, ToPreimages, TxOutpoint,
+    encode_bitcoin_code, ByteArray, Hashed, Script, Sha256d, ToPreimages, TxOutpoint,
 };
 use bitflags::bitflags;
 use serde_derive::{Deserialize, Serialize};
@@ -18,21 +18,21 @@ bitflags! {
 }
 
 #[derive(Clone, Debug)]
-pub struct TxPreimage<'a> {
+pub struct TxPreimage {
     version: i32,
-    hash_prevouts: ByteArray<'a>,
-    hash_sequence: ByteArray<'a>,
+    hash_prevouts: Sha256d,
+    hash_sequence: Sha256d,
     outpoint: TxOutpoint,
-    script_code: ByteArray<'a>,
+    script_code: ByteArray,
     value: u64,
     sequence: u32,
-    hash_outputs: ByteArray<'a>,
+    hash_outputs: Sha256d,
     lock_time: u32,
     sighash_flags: SigHashFlags,
 }
 
-impl<'a> TxPreimage<'a> {
-    pub fn build_preimages(tx: &impl ToPreimages) -> Vec<Vec<TxPreimage<'a>>> {
+impl TxPreimage {
+    pub fn build_preimages(tx: &impl ToPreimages) -> Vec<Vec<TxPreimage>> {
         let hash_all_prevouts = {
             let mut outpoints_serialized = ByteArray::from_slice_unnamed(&[]);
             for input_idx in 0..tx.num_inputs() {
@@ -42,7 +42,7 @@ impl<'a> TxPreimage<'a> {
                         .expect("Cannot encode outpoint"),
                 ));
             }
-            Sha256d::digest_byte_array(outpoints_serialized.named("prevouts")).named("hashPrevouts")
+            Sha256d::digest(outpoints_serialized.named("prevouts")).named("hashPrevouts")
         };
         let hash_all_sequences = {
             let mut sequences_serialized = ByteArray::from_slice_unnamed(&[]);
@@ -53,29 +53,19 @@ impl<'a> TxPreimage<'a> {
                         .expect("Cannot encode sequence"),
                 ));
             }
-            Sha256d::digest_byte_array(sequences_serialized.named("sequences"))
+            Sha256d::digest(sequences_serialized.named("sequences"))
                 .named("hashSequence")
         };
+        
         let hash_all_outputs = {
             let mut outputs_serialized = ByteArray::from_slice_unnamed(&[]);
             for output_idx in 0..tx.num_outputs() {
-                let mut byte_array = ByteArray::new(
-                    format!("output_{}", output_idx),
-                    encode_bitcoin_code(tx.output_at(output_idx)).expect("Cannot encode output"),
-                );
-                if let Some(redeem_script) = tx.output_redeem_script_at(output_idx) {
-                    byte_array.preimage = Some(
-                        vec![redeem_script
-                            .serialize()
-                            .expect("Cannot encode redeem script")
-                            .into()]
-                        .into(),
-                    );
-                    byte_array.function = Function::Hash160;
-                }
+                let byte_array = tx.output_at(output_idx).serialize()
+                    .expect("Cannot encode output")
+                    .named(format!("output_{}", output_idx));
                 outputs_serialized = outputs_serialized.concat(byte_array);
             }
-            Sha256d::digest_byte_array(outputs_serialized.named("outputs")).named("hashOutputs")
+            Sha256d::digest(outputs_serialized.named("outputs")).named("hashOutputs")
         };
         let mut inputs_preimages = Vec::with_capacity(tx.num_inputs());
         for input_idx in 0..tx.num_inputs() {
@@ -85,7 +75,7 @@ impl<'a> TxPreimage<'a> {
                 let hash_prevouts = if !sighash_flags.contains(SigHashFlags::ANYONECANPAY) {
                     hash_all_prevouts.clone()
                 } else {
-                    ByteArray::from_slice("hashPrevouts", &[0; 32])
+                    Sha256d::new([0; 32]).named("hashPrevouts")
                 };
                 let masked_flags = sighash_flags & SigHashFlags::MASK;
                 let hash_sequence = if !sighash_flags.contains(SigHashFlags::ANYONECANPAY)
@@ -94,19 +84,19 @@ impl<'a> TxPreimage<'a> {
                 {
                     hash_all_sequences.clone()
                 } else {
-                    ByteArray::from_slice("hashSequence", &[0; 32])
+                    Sha256d::new([0; 32]).named("hashSequence")
                 };
                 let hash_outputs =
                     if masked_flags != SigHashFlags::SINGLE && masked_flags != SigHashFlags::NONE {
                         hash_all_outputs.clone()
                     } else if masked_flags == SigHashFlags::SINGLE && input_idx < tx.num_outputs() {
-                        Sha256d::digest_byte_array(
-                            encode_bitcoin_code(tx.output_at(input_idx))
-                                .expect("Cannot encode output")
-                                .into(),
+                        Sha256d::digest(
+                            tx.output_at(input_idx)
+                                .serialize()
+                                .expect("Cannot encode output"),
                         )
                     } else {
-                        ByteArray::from_slice("hashOutputs", &[0; 32])
+                        Sha256d::new([0; 32]).named("hashOutputs")
                     };
                 preimages.push(TxPreimage {
                     version: tx.version(),
@@ -144,7 +134,7 @@ impl<'a> TxPreimage<'a> {
         }
         #[derive(Serialize)]
         struct TxPreimageOnlyScript<'a> {
-            script_code: &'a Script<'a>,
+            script_code: &'a Script,
         }
         let script_size = encode_bitcoin_code(&TxPreimageOnlyScript { script_code })
             .expect("Couldn't encode script")
@@ -153,39 +143,39 @@ impl<'a> TxPreimage<'a> {
         script_size + rest_size
     }
 
-    pub fn empty_with_script(script_code: &Script) -> TxPreimage<'static> {
+    pub fn empty_with_script(script_code: &Script) -> TxPreimage {
         TxPreimage {
             version: 0,
-            hash_prevouts: ByteArray::from_slice("hashPrevouts", &[0; 32]),
-            hash_sequence: ByteArray::from_slice("hashSequence", &[0; 32]),
+            hash_prevouts: Sha256d::new([0; 32]).named("hashPrevouts"),
+            hash_sequence: Sha256d::new([0; 32]).named("hashSequence"),
             outpoint: TxOutpoint {
                 tx_hash: Sha256d::new([0; 32]),
                 vout: 0,
             },
-            script_code: encode_bitcoin_code(script_code).unwrap().into(),
+            script_code: script_code.serialize().expect("Cannot encode script_code"),
             value: 0,
             sequence: 0,
-            hash_outputs: ByteArray::from_slice("hashOutputs", &[0; 32]),
+            hash_outputs: Sha256d::new([0; 32]).named("hashOutputs"),
             lock_time: 0,
             sighash_flags: SigHashFlags::ALL,
         }
     }
 
-    pub fn to_owned_array(&self) -> ByteArray<'static> {
+    pub fn to_byte_array(&self) -> ByteArray {
         ByteArray::new("nVersion", self.version.to_le_bytes().to_vec())
-            .concat(self.hash_prevouts.to_owned_array())
-            .concat(self.hash_sequence.to_owned_array())
+            .concat(self.hash_prevouts.as_byte_array().clone())
+            .concat(self.hash_sequence.as_byte_array().clone())
             .concat(ByteArray::new(
                 "scriptCode",
                 encode_bitcoin_code(&self.outpoint).unwrap(),
             ))
-            .concat(self.script_code.to_owned_array())
+            .concat(self.script_code.clone())
             .concat(ByteArray::new("value", self.value.to_le_bytes().to_vec()))
             .concat(ByteArray::new(
                 "nSequence",
                 self.sequence.to_le_bytes().to_vec(),
             ))
-            .concat(self.hash_outputs.to_owned_array())
+            .concat(self.hash_outputs.as_byte_array().clone())
             .concat(ByteArray::new(
                 "nLocktime",
                 self.lock_time.to_le_bytes().to_vec(),

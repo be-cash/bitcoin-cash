@@ -17,11 +17,11 @@ impl Default for CECC {
 }
 
 impl ECC for CECC {
-    fn sign(&self, secret_key: &[u8], msg_array: ByteArray<'static>) -> Result<ByteArray<'static>> {
+    fn sign(&self, secret_key: &[u8], msg_array: ByteArray) -> Result<ByteArray> {
         let sk = SecretKey::from_slice(secret_key)
             .chain_err(|| ErrorKind::InvalidSize((32, secret_key.len())))?;
-        let msg = Message::from_slice(&msg_array.data)
-            .chain_err(|| ErrorKind::InvalidSize((32, msg_array.data.len())))?;
+        let msg = Message::from_slice(&msg_array)
+            .chain_err(|| ErrorKind::InvalidSize((32, msg_array.len())))?;
         let sig = self.curve.sign(&msg, &sk).serialize_der().to_vec();
         Ok(msg_array.apply_function(sig, Function::EcdsaSign))
     }

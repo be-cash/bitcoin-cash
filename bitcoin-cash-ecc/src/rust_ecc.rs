@@ -13,7 +13,7 @@ impl Default for RustECC {
 }
 
 impl ECC for RustECC {
-    fn sign(&self, secret_key: &[u8], msg_array: ByteArray<'static>) -> Result<ByteArray<'static>> {
+    fn sign(&self, secret_key: &[u8], msg_array: ByteArray) -> Result<ByteArray> {
         let sk = SecretKey::parse_slice(secret_key)
             .chain_err(|| ErrorKind::InvalidSize((32, secret_key.len())))?;
         let msg = Message::parse_slice(&msg_array.data)

@@ -65,3 +65,9 @@ pub enum ErrorKind {
     #[error_chain(custom)]
     InvalidPubkey,
 }
+
+impl From<bitcoin_cash_script::FromSliceError> for Error {
+    fn from(error: bitcoin_cash_script::FromSliceError) -> Self {
+        ErrorKind::InvalidSize((error.expected, error.actual)).into()
+    }
+}
