@@ -442,7 +442,7 @@ mod tests {
             ae64857c3e9dfaa8a34ee688ac00000000"
         ).unwrap();
         assert_eq!(
-            Sha256d::digest(&tx_raw),
+            Sha256d::digest(tx_raw.as_slice()),
             Sha256d::from_hex_le(
                 "fff9979f9c7afb3cbe7fe34083e6dd206e33b19df176772feefd55d71667bae1"
             )?,

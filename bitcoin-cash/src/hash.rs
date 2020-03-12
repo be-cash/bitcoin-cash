@@ -1,21 +1,27 @@
 use crate::{
-    error::{ErrorKind, Result},
-    ByteArray, Function,
+    error::Result,
+    ByteArray, FixedByteArray, Function,
 };
 
 use serde_derive::{Deserialize, Serialize};
 use sha1::Digest;
 use std::fmt::{Debug, Display};
+use std::sync::Arc;
+use std::borrow::Cow;
 
 pub trait Hashed: Display + Debug + Sized + Eq + PartialEq {
-    fn digest(data: &[u8]) -> Self;
     fn as_slice(&self) -> &[u8];
     fn from_slice(hash: &[u8]) -> Result<Self>;
+    fn from_byte_array(hash: ByteArray) -> Result<Self>;
     fn function() -> Function;
-    fn digest_byte_array<'a>(byte_array: ByteArray<'a>) -> ByteArray<'a> {
-        let hashed = Self::digest(&byte_array.data);
-        byte_array.apply_function(hashed.as_slice().to_vec(), Self::function())
+    fn digest_slice(msg: &[u8]) -> Arc<[u8]>;
+    fn digest(msg: impl Into<ByteArray>) -> Self {
+        let msg = msg.into();
+        let hash = Self::digest_slice(&msg);
+        Self::from_byte_array(msg.apply_function(hash, Self::function()))
+            .expect("Self::digest_slice produced invalid slice")
     }
+    fn named(self, name: impl Into<Cow<'static, str>>) -> Self;
     fn from_hex_le(s: &str) -> Result<Self> {
         Self::from_slice(&hex::decode(s)?.iter().cloned().rev().collect::<Vec<_>>())
     }
@@ -34,42 +40,44 @@ pub trait Hashed: Display + Debug + Sized + Eq + PartialEq {
     fn to_hex_be(&self) -> String {
         hex::encode(self.as_slice())
     }
+    fn as_byte_array(&self) -> &ByteArray;
+    fn into_byte_array(self) -> ByteArray;
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, Hash, Deserialize, Serialize)]
-pub struct Sha1([u8; 20]);
-#[derive(Clone, Copy, Eq, PartialEq, Hash, Deserialize, Serialize)]
-pub struct Ripemd160([u8; 20]);
-#[derive(Clone, Copy, Eq, PartialEq, Hash, Deserialize, Serialize)]
-pub struct Sha256([u8; 32]);
-#[derive(Clone, Copy, Eq, PartialEq, Hash, Deserialize, Serialize)]
-pub struct Sha256d([u8; 32]);
-#[derive(Clone, Copy, Eq, PartialEq, Hash, Deserialize, Serialize)]
-pub struct Hash160([u8; 20]);
+#[derive(Clone, Eq, PartialEq, Hash, Deserialize, Serialize)]
+pub struct Sha1(FixedByteArray<[u8; 20]>);
+#[derive(Clone, Eq, PartialEq, Hash, Deserialize, Serialize)]
+pub struct Ripemd160(FixedByteArray<[u8; 20]>);
+#[derive(Clone, Eq, PartialEq, Hash, Deserialize, Serialize)]
+pub struct Sha256(FixedByteArray<[u8; 32]>);
+#[derive(Clone, Eq, PartialEq, Hash, Deserialize, Serialize)]
+pub struct Sha256d(FixedByteArray<[u8; 32]>);
+#[derive(Clone, Eq, PartialEq, Hash, Deserialize, Serialize)]
+pub struct Hash160(FixedByteArray<[u8; 20]>);
 
 impl Sha1 {
     pub fn new(hash: [u8; 20]) -> Self {
-        Sha1(hash)
+        Sha1(FixedByteArray::new_unnamed(hash))
     }
 }
 impl Ripemd160 {
     pub fn new(hash: [u8; 20]) -> Self {
-        Ripemd160(hash)
+        Ripemd160(FixedByteArray::new_unnamed(hash))
     }
 }
 impl Sha256 {
     pub fn new(hash: [u8; 32]) -> Self {
-        Sha256(hash)
+        Sha256(FixedByteArray::new_unnamed(hash))
     }
 }
 impl Sha256d {
     pub fn new(hash: [u8; 32]) -> Self {
-        Sha256d(hash)
+        Sha256d(FixedByteArray::new_unnamed(hash))
     }
 }
 impl Hash160 {
     pub fn new(hash: [u8; 20]) -> Self {
-        Hash160(hash)
+        Hash160(FixedByteArray::new_unnamed(hash))
     }
 }
 
@@ -129,21 +137,26 @@ impl Hashed for Sha1 {
     fn function() -> Function {
         Function::Sha1
     }
-    fn digest(data: &[u8]) -> Self {
-        let mut hash = [0; 20];
-        hash.copy_from_slice(sha1::Sha1::digest(data).as_slice());
-        Sha1(hash)
+    fn digest_slice(msg: &[u8]) -> Arc<[u8]> {
+        sha1::Sha1::digest(msg).as_slice().into()
     }
     fn as_slice(&self) -> &[u8] {
-        &self.0
+        self.0.as_ref()
     }
     fn from_slice(hash: &[u8]) -> Result<Self> {
-        if hash.len() != 20 {
-            return Err(ErrorKind::InvalidSize((20, hash.len())).into());
-        }
-        let mut hash_arr = [0; 20];
-        hash_arr.copy_from_slice(hash);
-        Ok(Sha1(hash_arr))
+        Ok(Sha1(FixedByteArray::from_slice_unnamed(hash)?))
+    }
+    fn from_byte_array(hash: ByteArray) -> Result<Self> {
+        Ok(Sha1(FixedByteArray::from_byte_array(hash)?))
+    }
+    fn named(self, name: impl Into<Cow<'static, str>>) -> Self {
+        Sha1(self.0.named(name))
+    }
+    fn as_byte_array(&self) -> &ByteArray {
+        self.0.as_byte_array()
+    }
+    fn into_byte_array(self) -> ByteArray {
+        self.0.into_byte_array()
     }
 }
 
@@ -151,21 +164,26 @@ impl Hashed for Ripemd160 {
     fn function() -> Function {
         Function::Ripemd160
     }
-    fn digest(data: &[u8]) -> Self {
-        let mut hash = [0; 20];
-        hash.copy_from_slice(ripemd160::Ripemd160::digest(data).as_slice());
-        Ripemd160(hash)
+    fn digest_slice(msg: &[u8]) -> Arc<[u8]> {
+        ripemd160::Ripemd160::digest(msg).as_slice().into()
     }
     fn as_slice(&self) -> &[u8] {
-        &self.0
+        self.0.as_ref()
     }
     fn from_slice(hash: &[u8]) -> Result<Self> {
-        if hash.len() != 20 {
-            return Err(ErrorKind::InvalidSize((20, hash.len())).into());
-        }
-        let mut hash_arr = [0; 20];
-        hash_arr.copy_from_slice(hash);
-        Ok(Ripemd160(hash_arr))
+        Ok(Ripemd160(FixedByteArray::from_slice_unnamed(hash)?))
+    }
+    fn from_byte_array(hash: ByteArray) -> Result<Self> {
+        Ok(Ripemd160(FixedByteArray::from_byte_array(hash)?))
+    }
+    fn named(self, name: impl Into<Cow<'static, str>>) -> Self {
+        Ripemd160(self.0.named(name))
+    }
+    fn as_byte_array(&self) -> &ByteArray {
+        self.0.as_byte_array()
+    }
+    fn into_byte_array(self) -> ByteArray {
+        self.0.into_byte_array()
     }
 }
 
@@ -173,21 +191,26 @@ impl Hashed for Sha256 {
     fn function() -> Function {
         Function::Sha256
     }
-    fn digest(data: &[u8]) -> Self {
-        let mut hash = [0; 32];
-        hash.copy_from_slice(sha2::Sha256::digest(data).as_slice());
-        Sha256(hash)
+    fn digest_slice(msg: &[u8]) -> Arc<[u8]> {
+        sha2::Sha256::digest(msg).as_slice().into()
     }
     fn as_slice(&self) -> &[u8] {
-        &self.0
+        self.0.as_ref()
     }
     fn from_slice(hash: &[u8]) -> Result<Self> {
-        if hash.len() != 32 {
-            return Err(ErrorKind::InvalidSize((32, hash.len())).into());
-        }
-        let mut hash_arr = [0; 32];
-        hash_arr.copy_from_slice(hash);
-        Ok(Sha256(hash_arr))
+        Ok(Sha256(FixedByteArray::from_slice_unnamed(hash)?))
+    }
+    fn from_byte_array(hash: ByteArray) -> Result<Self> {
+        Ok(Sha256(FixedByteArray::from_byte_array(hash)?))
+    }
+    fn named(self, name: impl Into<Cow<'static, str>>) -> Self {
+        Sha256(self.0.named(name))
+    }
+    fn as_byte_array(&self) -> &ByteArray {
+        self.0.as_byte_array()
+    }
+    fn into_byte_array(self) -> ByteArray {
+        self.0.into_byte_array()
     }
 }
 
@@ -195,23 +218,26 @@ impl Hashed for Sha256d {
     fn function() -> Function {
         Function::Hash256
     }
-    fn digest(data: &[u8]) -> Self {
-        let mut hash = [0; 32];
-        hash.copy_from_slice(
-            sha2::Sha256::digest(sha2::Sha256::digest(data).as_slice()).as_slice(),
-        );
-        Sha256d(hash)
+    fn digest_slice(msg: &[u8]) -> Arc<[u8]> {
+        sha2::Sha256::digest(sha2::Sha256::digest(msg).as_slice()).as_slice().into()
     }
     fn as_slice(&self) -> &[u8] {
-        &self.0
+        self.0.as_ref()
     }
     fn from_slice(hash: &[u8]) -> Result<Self> {
-        if hash.len() != 32 {
-            return Err(ErrorKind::InvalidSize((32, hash.len())).into());
-        }
-        let mut hash_arr = [0; 32];
-        hash_arr.copy_from_slice(hash);
-        Ok(Sha256d(hash_arr))
+        Ok(Sha256d(FixedByteArray::from_slice_unnamed(hash)?))
+    }
+    fn from_byte_array(hash: ByteArray) -> Result<Self> {
+        Ok(Sha256d(FixedByteArray::from_byte_array(hash)?))
+    }
+    fn named(self, name: impl Into<Cow<'static, str>>) -> Self {
+        Sha256d(self.0.named(name))
+    }
+    fn as_byte_array(&self) -> &ByteArray {
+        self.0.as_byte_array()
+    }
+    fn into_byte_array(self) -> ByteArray {
+        self.0.into_byte_array()
     }
 }
 
@@ -219,29 +245,33 @@ impl Hashed for Hash160 {
     fn function() -> Function {
         Function::Hash160
     }
-    fn digest(data: &[u8]) -> Self {
-        let mut hash = [0; 20];
-        hash.copy_from_slice(
-            ripemd160::Ripemd160::digest(sha2::Sha256::digest(data).as_slice()).as_slice(),
-        );
-        Hash160(hash)
+    fn digest_slice(msg: &[u8]) -> Arc<[u8]> {
+        ripemd160::Ripemd160::digest(sha2::Sha256::digest(msg).as_slice()).as_slice().into()
     }
     fn as_slice(&self) -> &[u8] {
-        &self.0
+        self.0.as_ref()
     }
     fn from_slice(hash: &[u8]) -> Result<Self> {
-        if hash.len() != 20 {
-            return Err(ErrorKind::InvalidSize((20, hash.len())).into());
-        }
-        let mut hash_arr = [0; 20];
-        hash_arr.copy_from_slice(hash);
-        Ok(Hash160(hash_arr))
+        Ok(Hash160(FixedByteArray::from_slice_unnamed(hash)?))
+    }
+    fn from_byte_array(hash: ByteArray) -> Result<Self> {
+        Ok(Hash160(FixedByteArray::from_byte_array(hash)?))
+    }
+    fn named(self, name: impl Into<Cow<'static, str>>) -> Self {
+        Hash160(self.0.named(name))
+    }
+    fn as_byte_array(&self) -> &ByteArray {
+        self.0.as_byte_array()
+    }
+    fn into_byte_array(self) -> ByteArray {
+        self.0.into_byte_array()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{ErrorKind, Hash160, Hashed, Result, Ripemd160, Sha1, Sha256, Sha256d};
+    use crate::error::ErrorKind;
+    use super::{Hash160, Hashed, Result, Ripemd160, Sha1, Sha256, Sha256d};
     use hex_literal::hex;
 
     #[test]

@@ -145,13 +145,13 @@ impl<'a> Address<'a> {
     }
 
     pub fn with_prefix<P: Into<AddressPrefix<'a>>>(&'a self, prefix: P) -> Address<'a> {
-        Self::from_hash(prefix, self.addr_type, self.hash)
+        Self::from_hash(prefix, self.addr_type, self.hash.clone())
     }
 
     pub fn to_owned_address(&self) -> Address<'static> {
         Address {
             addr_type: self.addr_type,
-            hash: self.hash,
+            hash: self.hash.clone(),
             cash_addr: self.cash_addr.to_string().into(),
             prefix: AddressPrefix {
                 prefix_str: self.prefix.prefix_str.to_string().into(),
