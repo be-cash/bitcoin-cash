@@ -56,6 +56,9 @@ pub enum ErrorKind {
     #[error_chain(custom)]
     ScriptSerialize(ScriptSerializeError),
 
+    #[error_chain(link = "crate::serialize_json::error::Error")]
+    Json(crate::serialize_json::error::ErrorKind),
+
     #[error_chain(custom)]
     InsufficientInputAmount(u64),
 
@@ -64,6 +67,9 @@ pub enum ErrorKind {
 
     #[error_chain(custom)]
     InvalidPubkey,
+
+    #[error_chain(foreign)]
+    SerdeJson(serde_json::Error),
 }
 
 impl From<bitcoin_cash_script::FromSliceError> for Error {
