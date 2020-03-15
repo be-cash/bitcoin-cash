@@ -3,8 +3,10 @@ name = "bitcoin-cash-slp"
 version = "0.1.1"
 authors = ["tobiasruck <ruck.tobias@gmail.com>"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "A library for creating SLP transactions"
+homepage = "https://github.com/be-cash/bitcoin-cash"
+documentation = "https://github.com/be-cash/bitcoin-cash"
+repository = "https://github.com/be-cash/bitcoin-cash"
 
 [dependencies]
-bitcoin-cash = {path="../bitcoin-cash"}
+bitcoin-cash = {path="../bitcoin-cash", version="0.1.1"}
