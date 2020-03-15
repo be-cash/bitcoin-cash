@@ -1,13 +1,13 @@
 use crate::Integer;
 use byteorder::{LittleEndian, WriteBytesExt};
+use serde_derive::{Deserialize, Serialize};
 use std::borrow::Cow;
-use std::sync::Arc;
+use std::hash::Hash;
 use std::marker::PhantomData;
 use std::ops::Deref;
-use std::hash::Hash;
-use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Function {
     Plain,
     Sha1,
@@ -76,6 +76,20 @@ impl ByteArray {
         }
     }
 
+    pub fn from_preimage(
+        data: Arc<[u8]>,
+        name: Option<Arc<Cow<'static, str>>>,
+        function: Function,
+        preimage: Option<Arc<[ByteArray]>>,
+    ) -> Self {
+        ByteArray {
+            data,
+            name,
+            function,
+            preimage,
+        }
+    }
+
     pub fn from_slice(name: impl Into<Cow<'static, str>>, slice: &[u8]) -> Self {
         ByteArray {
             data: slice.into(),
@@ -94,15 +108,32 @@ impl ByteArray {
         }
     }
 
-    pub fn len(&self) -> usize {
-        self.data.len()
+    pub fn function(&self) -> Function {
+        self.function
+    }
+
+    pub fn preimage(&self) -> Option<&[ByteArray]> {
+        self.preimage.as_ref().map(|preimage| preimage.as_ref())
+    }
+
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_ref().map(|name| (*(*name).as_ref()).as_ref())
+    }
+
+    pub fn name_arc(&self) -> Option<&Arc<Cow<'static, str>>> {
+        self.name.as_ref()
+    }
+
+    pub fn data(&self) -> &Arc<[u8]> {
+        &self.data
     }
 
     pub fn concat_named_option(
         self,
-        other: ByteArray,
+        other: impl Into<ByteArray>,
         name: Option<Arc<Cow<'static, str>>>,
     ) -> ByteArray {
+        let other = other.into();
         let mut new_data = Vec::with_capacity(self.data.len() + other.data.len());
         new_data.extend_from_slice(&self.data);
         new_data.extend_from_slice(&other.data);
@@ -132,14 +163,14 @@ impl ByteArray {
         }
     }
 
-    pub fn concat(self, other: ByteArray) -> ByteArray {
+    pub fn concat(self, other: impl Into<ByteArray>) -> ByteArray {
         self.concat_named_option(other, None)
     }
 
     pub fn concat_named(
         self,
         name: impl Into<Arc<Cow<'static, str>>>,
-        other: ByteArray,
+        other: impl Into<ByteArray>,
     ) -> ByteArray {
         self.concat_named_option(other, Some(name.into()))
     }
@@ -210,11 +241,7 @@ impl ByteArray {
         ))
     }
 
-    pub fn apply_function(
-        self,
-        data: impl Into<Arc<[u8]>>,
-        function: Function,
-    ) -> ByteArray {
+    pub fn apply_function(self, data: impl Into<Arc<[u8]>>, function: Function) -> ByteArray {
         ByteArray {
             data: data.into(),
             name: None,
@@ -283,7 +310,10 @@ impl<T> FixedByteArray<T> {
     }
 }
 
-impl<T> FixedByteArray<T> where T: AsRef<[u8]> {
+impl<T> FixedByteArray<T>
+where
+    T: AsRef<[u8]>,
+{
     pub fn new(name: impl Into<Cow<'static, str>>, data: T) -> Self {
         FixedByteArray {
             phantom: PhantomData,
@@ -292,7 +322,7 @@ impl<T> FixedByteArray<T> where T: AsRef<[u8]> {
                 name: Some(Arc::new(name.into())),
                 function: Function::Plain,
                 preimage: None,
-            }
+            },
         }
     }
 
@@ -304,19 +334,24 @@ impl<T> FixedByteArray<T> where T: AsRef<[u8]> {
                 name: None,
                 function: Function::Plain,
                 preimage: None,
-            }
+            },
         }
     }
 }
 
-impl<T> FixedByteArray<T> where T: Default + AsRef<[u8]> {
-
-    pub fn from_slice(name: impl Into<Cow<'static, str>>, slice: &[u8]) -> Result<Self, FromSliceError> {
+impl<T> FixedByteArray<T>
+where
+    T: Default + AsRef<[u8]>,
+{
+    pub fn from_slice(
+        name: impl Into<Cow<'static, str>>,
+        slice: &[u8],
+    ) -> Result<Self, FromSliceError> {
         let array = T::default();
         if array.as_ref().len() != slice.len() {
             return Err(FromSliceError {
                 expected: array.as_ref().len(),
-                actual: slice.len()
+                actual: slice.len(),
             });
         }
         Ok(FixedByteArray {
@@ -326,7 +361,7 @@ impl<T> FixedByteArray<T> where T: Default + AsRef<[u8]> {
                 name: Some(Arc::new(name.into())),
                 function: Function::Plain,
                 preimage: None,
-            }
+            },
         })
     }
 
@@ -335,7 +370,7 @@ impl<T> FixedByteArray<T> where T: Default + AsRef<[u8]> {
         if array.as_ref().len() != slice.len() {
             return Err(FromSliceError {
                 expected: array.as_ref().len(),
-                actual: slice.len()
+                actual: slice.len(),
             });
         }
         Ok(FixedByteArray {
@@ -345,7 +380,7 @@ impl<T> FixedByteArray<T> where T: Default + AsRef<[u8]> {
                 name: None,
                 function: Function::Plain,
                 preimage: None,
-            }
+            },
         })
     }
 
@@ -354,7 +389,7 @@ impl<T> FixedByteArray<T> where T: Default + AsRef<[u8]> {
         if array.as_ref().len() != byte_array.len() {
             return Err(FromSliceError {
                 expected: array.as_ref().len(),
-                actual: byte_array.len()
+                actual: byte_array.len(),
             });
         }
         Ok(FixedByteArray {
@@ -440,19 +475,32 @@ impl PartialEq for ByteArray {
 
 impl Eq for ByteArray {}
 
-impl<'de> Deserialize<'de> for ByteArray {
+impl<'de> serde::Deserialize<'de> for ByteArray {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where D: serde::Deserializer<'de> {
+    where
+        D: serde::Deserializer<'de>,
+    {
         Ok(ByteArray::from_slice_unnamed(
-            <&[u8] as Deserialize<'de>>::deserialize(deserializer)?
+            <&[u8] as serde::Deserialize<'de>>::deserialize(deserializer)?,
         ))
     }
 }
 
-impl Serialize for ByteArray {
+impl serde::Serialize for ByteArray {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: serde::Serializer {
+    where
+        S: serde::Serializer,
+    {
         self.data.serialize(serializer)
+    }
+}
+
+impl<T: Default + AsRef<[u8]>> Default for FixedByteArray<T> {
+    fn default() -> Self {
+        FixedByteArray {
+            phantom: PhantomData,
+            byte_array: ByteArray::new_unnamed(T::default().as_ref()),
+        }
     }
 }
 
@@ -490,16 +538,26 @@ impl<T> PartialEq for FixedByteArray<T> {
 
 impl<T> Eq for FixedByteArray<T> {}
 
-impl<'de, T> Deserialize<'de> for FixedByteArray<T> where T: Deserialize<'de> + AsRef<[u8]> {
+impl<'de, T> serde::Deserialize<'de> for FixedByteArray<T>
+where
+    T: serde::Deserialize<'de> + AsRef<[u8]>,
+{
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where D: serde::Deserializer<'de> {
+    where
+        D: serde::Deserializer<'de>,
+    {
         Ok(FixedByteArray::new_unnamed(T::deserialize(deserializer)?))
     }
 }
 
-impl<T> Serialize for FixedByteArray<T> where T: Serialize + Default + AsMut<[u8]> {
+impl<T> serde::Serialize for FixedByteArray<T>
+where
+    T: serde::Serialize + Default + AsMut<[u8]>,
+{
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: serde::Serializer {
+    where
+        S: serde::Serializer,
+    {
         let mut array = T::default();
         array.as_mut().copy_from_slice(self.byte_array.as_ref());
         array.serialize(serializer)
