@@ -93,7 +93,7 @@ impl From<Op> for StackItemData {
             Op::Invalid(_) => unimplemented!(),
             Op::PushBoolean(boolean) => StackItemData::Boolean(boolean),
             Op::PushInteger(int) => StackItemData::Integer(int),
-            Op::PushByteArray {array, ..} => StackItemData::ByteArray(array),
+            Op::PushByteArray { array, .. } => StackItemData::ByteArray(array),
         }
     }
 }

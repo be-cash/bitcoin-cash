@@ -39,9 +39,9 @@ pub struct OpcodeBehavior {
 }
 
 /// All opcodes which can be used in a Bitcoin Cash script.
-/// 
+///
 /// Can be used in `#[bitcoin_cash::script]` functions.
-/// 
+///
 /// ## Example
 /// ```
 /// use bitcoin_cash::{Opcode::*, Address, ByteArray, Hashed};
@@ -791,7 +791,7 @@ pub enum Opcode {
     /// OP_2SWAP<T, U, V, W>(a: T, b: U, c: V, d: W) -> (V, W, T, U)
     /// ```
     ///
-    /// Swaps the top two pairs of items. 
+    /// Swaps the top two pairs of items.
     ///
     /// ```text
     /// a b c d -> c d a b
@@ -1170,7 +1170,7 @@ pub enum Opcode {
     /// OP_NUM2BIN(num: Integer, n_bytes: Integer) -> ByteArray
     /// ```
     ///
-    /// Convert `num`into a byte sequence of size `n_bytes`, taking account of 
+    /// Convert `num`into a byte sequence of size `n_bytes`, taking account of
     /// the sign bit. The byte sequence produced uses little-endian encoding.
     ///
     /// Usage:
