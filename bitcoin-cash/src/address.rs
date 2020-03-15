@@ -2,7 +2,7 @@ use num_derive::*;
 use std::borrow::Cow;
 
 use crate::error::{Error, ErrorKind, Result};
-use crate::hash::{Hash160, Hashed};
+use crate::{serialize_ops, Hash160, Hashed, Ops, Script};
 
 const CHARSET: &[u8] = b"qpzry9x8gf2tvdw0s3jn54khce6mua7l";
 
@@ -122,6 +122,17 @@ impl<'a> Address<'a> {
             hash: Hash160::from_slice(&hash)?,
             prefix: AddressPrefix::new(prefix, prefix_kind),
         })
+    }
+
+    pub fn from_redeem_script<P: Into<AddressPrefix<'a>>>(
+        prefix: P,
+        redeem_script: Script,
+    ) -> Result<Address<'a>> {
+        Ok(Address::from_hash(
+            prefix,
+            AddressType::P2SH,
+            Hash160::digest(serialize_ops(redeem_script.ops().iter().map(|op| &op.op))?),
+        ))
     }
 
     pub fn hash(&self) -> &Hash160 {
