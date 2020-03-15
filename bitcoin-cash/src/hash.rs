@@ -1,13 +1,13 @@
 use crate::{
-    error::Result,
-    ByteArray, FixedByteArray, Function,
+    error::Result, BitcoinByteArray, BitcoinDataType, ByteArray, DataType, FixedByteArray,
+    Function, Op,
 };
 
 use serde_derive::{Deserialize, Serialize};
 use sha1::Digest;
+use std::borrow::Cow;
 use std::fmt::{Debug, Display};
 use std::sync::Arc;
-use std::borrow::Cow;
 
 pub trait Hashed: Display + Debug + Sized + Eq + PartialEq {
     fn as_slice(&self) -> &[u8];
@@ -42,17 +42,20 @@ pub trait Hashed: Display + Debug + Sized + Eq + PartialEq {
     }
     fn as_byte_array(&self) -> &ByteArray;
     fn into_byte_array(self) -> ByteArray;
+    fn concat(self, other: impl Into<ByteArray>) -> ByteArray {
+        self.into_byte_array().concat(other)
+    }
 }
 
-#[derive(Clone, Eq, PartialEq, Hash, Deserialize, Serialize)]
+#[derive(Clone, Eq, PartialEq, Default, Hash, Deserialize, Serialize)]
 pub struct Sha1(FixedByteArray<[u8; 20]>);
-#[derive(Clone, Eq, PartialEq, Hash, Deserialize, Serialize)]
+#[derive(Clone, Eq, PartialEq, Default, Hash, Deserialize, Serialize)]
 pub struct Ripemd160(FixedByteArray<[u8; 20]>);
-#[derive(Clone, Eq, PartialEq, Hash, Deserialize, Serialize)]
+#[derive(Clone, Eq, PartialEq, Default, Hash, Deserialize, Serialize)]
 pub struct Sha256(FixedByteArray<[u8; 32]>);
-#[derive(Clone, Eq, PartialEq, Hash, Deserialize, Serialize)]
+#[derive(Clone, Eq, PartialEq, Default, Hash, Deserialize, Serialize)]
 pub struct Sha256d(FixedByteArray<[u8; 32]>);
-#[derive(Clone, Eq, PartialEq, Hash, Deserialize, Serialize)]
+#[derive(Clone, Eq, PartialEq, Default, Hash, Deserialize, Serialize)]
 pub struct Hash160(FixedByteArray<[u8; 20]>);
 
 impl Sha1 {
@@ -219,7 +222,9 @@ impl Hashed for Sha256d {
         Function::Hash256
     }
     fn digest_slice(msg: &[u8]) -> Arc<[u8]> {
-        sha2::Sha256::digest(sha2::Sha256::digest(msg).as_slice()).as_slice().into()
+        sha2::Sha256::digest(sha2::Sha256::digest(msg).as_slice())
+            .as_slice()
+            .into()
     }
     fn as_slice(&self) -> &[u8] {
         self.0.as_ref()
@@ -246,7 +251,9 @@ impl Hashed for Hash160 {
         Function::Hash160
     }
     fn digest_slice(msg: &[u8]) -> Arc<[u8]> {
-        ripemd160::Ripemd160::digest(sha2::Sha256::digest(msg).as_slice()).as_slice().into()
+        ripemd160::Ripemd160::digest(sha2::Sha256::digest(msg).as_slice())
+            .as_slice()
+            .into()
     }
     fn as_slice(&self) -> &[u8] {
         self.0.as_ref()
@@ -268,10 +275,101 @@ impl Hashed for Hash160 {
     }
 }
 
+impl BitcoinDataType for Sha1 {
+    type Type = BitcoinByteArray;
+    fn to_data(&self) -> Self::Type {
+        BitcoinByteArray(self.as_byte_array().clone())
+    }
+    fn to_pushop(&self) -> Op {
+        self.as_byte_array().clone().into()
+    }
+    fn to_data_type(&self) -> DataType {
+        DataType::ByteArray(Some(self.0.len()))
+    }
+}
+
+impl BitcoinDataType for Ripemd160 {
+    type Type = BitcoinByteArray;
+    fn to_data(&self) -> Self::Type {
+        BitcoinByteArray(self.as_byte_array().clone())
+    }
+    fn to_pushop(&self) -> Op {
+        self.as_byte_array().clone().into()
+    }
+    fn to_data_type(&self) -> DataType {
+        DataType::ByteArray(Some(self.0.len()))
+    }
+}
+
+impl BitcoinDataType for Sha256 {
+    type Type = BitcoinByteArray;
+    fn to_data(&self) -> Self::Type {
+        BitcoinByteArray(self.as_byte_array().clone())
+    }
+    fn to_pushop(&self) -> Op {
+        self.as_byte_array().clone().into()
+    }
+    fn to_data_type(&self) -> DataType {
+        DataType::ByteArray(Some(self.0.len()))
+    }
+}
+
+impl BitcoinDataType for Sha256d {
+    type Type = BitcoinByteArray;
+    fn to_data(&self) -> Self::Type {
+        BitcoinByteArray(self.as_byte_array().clone())
+    }
+    fn to_pushop(&self) -> Op {
+        self.as_byte_array().clone().into()
+    }
+    fn to_data_type(&self) -> DataType {
+        DataType::ByteArray(Some(self.0.len()))
+    }
+}
+
+impl BitcoinDataType for Hash160 {
+    type Type = BitcoinByteArray;
+    fn to_data(&self) -> Self::Type {
+        BitcoinByteArray(self.as_byte_array().clone())
+    }
+    fn to_pushop(&self) -> Op {
+        self.as_byte_array().clone().into()
+    }
+    fn to_data_type(&self) -> DataType {
+        DataType::ByteArray(Some(self.0.len()))
+    }
+}
+
+impl From<Sha1> for ByteArray {
+    fn from(hash: Sha1) -> Self {
+        hash.into_byte_array()
+    }
+}
+impl From<Ripemd160> for ByteArray {
+    fn from(hash: Ripemd160) -> Self {
+        hash.into_byte_array()
+    }
+}
+impl From<Sha256> for ByteArray {
+    fn from(hash: Sha256) -> Self {
+        hash.into_byte_array()
+    }
+}
+impl From<Sha256d> for ByteArray {
+    fn from(hash: Sha256d) -> Self {
+        hash.into_byte_array()
+    }
+}
+impl From<Hash160> for ByteArray {
+    fn from(hash: Hash160) -> Self {
+        hash.into_byte_array()
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::error::ErrorKind;
     use super::{Hash160, Hashed, Result, Ripemd160, Sha1, Sha256, Sha256d};
+    use crate::error::ErrorKind;
     use hex_literal::hex;
 
     #[test]
