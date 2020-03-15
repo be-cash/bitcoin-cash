@@ -1,7 +1,7 @@
 use crate::gen_source;
 use crate::ir;
 use crate::state::{StackItem, State, VariantStates};
-use bitcoin_cash_script::{Integer, Opcode};
+use bitcoin_cash_base::{Integer, Opcode};
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
 use std::collections::HashMap;
@@ -370,7 +370,7 @@ impl GenerateScript {
         let script_ident = self.script_ident.clone();
         let ident = &opcode.ident;
         let expr_span = opcode.expr_span;
-        let opcode_type = bitcoin_cash_script::MAP_NAME_TO_ENUM.get(&ident.to_string());
+        let opcode_type = bitcoin_cash_base::MAP_NAME_TO_ENUM.get(&ident.to_string());
         match opcode_type {
             Some(&opcode_type @ OP_TOALTSTACK) => {
                 let src = self.next_formatted_stmts();

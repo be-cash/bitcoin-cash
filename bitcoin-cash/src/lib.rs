@@ -33,5 +33,5 @@ pub use tx::*;
 pub use tx_builder::*;
 pub use tx_preimage::*;
 
-pub use bitcoin_cash_script::*;
+pub use bitcoin_cash_base::*;
 pub use bitcoin_cash_script_macro::script;

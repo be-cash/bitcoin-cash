@@ -11,7 +11,7 @@ repository = "https://github.com/be-cash/bitcoin-cash"
 
 [dependencies]
 bitcoin-cash-script-macro = {path="../bitcoin-cash-script-macro"}
-bitcoin-cash-script = {path="../bitcoin-cash-script"}
+bitcoin-cash-base = {path="../bitcoin-cash-base"}
 
 hex = "0.4"
 hex-literal = "0.2"

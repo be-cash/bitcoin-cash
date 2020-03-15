@@ -1,8 +1,14 @@
 [package]
-name = "bitcoin-cash-script"
+name = "bitcoin-cash-base"
 version = "0.1.1"
 authors = ["tobiasruck <ruck.tobias@gmail.com>"]
 edition = "2018"
+license = "MIT"
+description = "A library for creating and parsing Bitcoin Cash trasactions"
+homepage = "https://github.com/be-cash/bitcoin-cash"
+documentation = "https://github.com/be-cash/bitcoin-cash"
+repository = "https://github.com/be-cash/bitcoin-cash"
+
 
 [dependencies]
 num = "0.2"

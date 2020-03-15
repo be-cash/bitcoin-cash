@@ -2,8 +2,8 @@
 
 members = [
     "bitcoin-cash",
+    "bitcoin-cash-base",
     "bitcoin-cash-ecc",
-    "bitcoin-cash-script",
     "bitcoin-cash-script-macro",
     "bitcoin-cash-slp",
 ]

@@ -72,8 +72,8 @@ pub enum ErrorKind {
     SerdeJson(serde_json::Error),
 }
 
-impl From<bitcoin_cash_script::FromSliceError> for Error {
-    fn from(error: bitcoin_cash_script::FromSliceError) -> Self {
+impl From<bitcoin_cash_base::FromSliceError> for Error {
+    fn from(error: bitcoin_cash_base::FromSliceError) -> Self {
         ErrorKind::InvalidSize((error.expected, error.actual)).into()
     }
 }

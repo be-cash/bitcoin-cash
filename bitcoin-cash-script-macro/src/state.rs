@@ -1,5 +1,5 @@
 use crate::ir;
-use bitcoin_cash_script::Integer;
+use bitcoin_cash_base::Integer;
 use proc_macro2::TokenStream;
 use quote::quote;
 use std::collections::HashMap;

@@ -13,7 +13,7 @@ repository = "https://github.com/be-cash/bitcoin-cash"
 proc-macro = true
 
 [dependencies]
-bitcoin-cash-script = {path="../bitcoin-cash-script"}
+bitcoin-cash-base = {path="../bitcoin-cash-base"}
 
 syn = {version="1.0", features=["full"]}
 quote = "1.0"
