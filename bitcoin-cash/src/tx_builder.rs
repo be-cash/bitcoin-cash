@@ -1,32 +1,27 @@
 use crate::error::Result;
 use crate::{
-    encode_bitcoin_code, error::ErrorKind, ByteArray,
-    InputScript, Op, Ops, Script, SigHashFlags, TaggedScript, TaggedScriptOps,
-    TxInput, TxOutpoint, TxOutput, TxPreimage, UnhashedTx, MAX_SIGNATURE_SIZE,
+    encode_bitcoin_code, error::ErrorKind, InputScript, Ops, Script, SigHashFlags, TaggedOp,
+    TaggedScript, TxInput, TxOutpoint, TxOutput, TxPreimage, UnhashedTx,
 };
+use std::any::Any;
 use std::collections::HashMap;
+use std::marker::PhantomData;
 
 #[derive(PartialEq, Debug)]
-pub struct EmptyTxInput {
+pub struct UnsignedTxInput {
     pub prev_out: TxOutpoint,
     pub sequence: u32,
     pub value: u64,
 }
 
 struct TxBuilderInput<'b> {
-    input: EmptyTxInput,
+    input: UnsignedTxInput,
     func_script: Box<
-        dyn Fn(
-                &[TxPreimage],
-                &TxBuilder,
-                Vec<ByteArray>,
-                &Script,
-                &[TxOutput],
-            ) -> Script
+        dyn Fn(&[TxPreimage], &TxBuilder, Option<Box<dyn Any>>, &Script, &[TxOutput]) -> Script
             + 'b,
     >,
     sig_hash_flags: Vec<SigHashFlags>,
-    lock_script: TaggedScriptOps,
+    lock_script: Script,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -48,9 +43,22 @@ pub struct TxBuilder<'b> {
     lock_time: u32,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct InputReference<T> {
+    phantom: PhantomData<T>,
+    input_idx: usize,
+}
+
 pub struct UnsignedTx<'b> {
-    pub builder: TxBuilder<'b>,
-    pub outputs: Vec<TxOutput>,
+    builder: TxBuilder<'b>,
+    outputs: Vec<TxOutput>,
+    tx_preimages: Vec<Vec<TxPreimage>>,
+    inputs: Vec<Option<TxInput>>,
+}
+
+struct TxBuilderPreimages<'b> {
+    builder: &'b TxBuilder<'b>,
+    outputs: &'b [TxOutput],
 }
 
 pub trait ToPreimages {
@@ -66,14 +74,16 @@ pub trait ToPreimages {
     fn lock_time(&self) -> u32;
 }
 
-pub trait InputScriptBuilder {
+pub trait Signatory {
     type Script: InputScript;
+    type Signatures: 'static;
     fn sig_hash_flags(&self) -> Vec<SigHashFlags>;
-    fn build_script<'a, 'b>(
+    fn placeholder_signatures(&self) -> Self::Signatures;
+    fn build_script(
         &self,
-        tx_preimage: &[TxPreimage],
+        tx_preimages: &[TxPreimage],
         unsigned_tx: &TxBuilder,
-        sigs: Vec<ByteArray>,
+        sigs: Self::Signatures,
         lock_script: &Script,
         tx_outputs: &[TxOutput],
     ) -> Self::Script;
@@ -92,36 +102,56 @@ impl<'b> TxBuilder<'b> {
         }
     }
 
-    pub fn add_input<I: InputScript>(
+    pub fn new(version: i32, lock_time: u32) -> Self {
+        TxBuilder {
+            version,
+            inputs: Vec::new(),
+            outputs: Vec::new(),
+            lock_time,
+        }
+    }
+
+    pub fn add_input<S: Signatory + 'b>(
         &mut self,
-        input: impl Into<EmptyTxInput>,
-        lock_script: TaggedScript<I>,
-        input_script_builder: impl InputScriptBuilder<Script = I> + 'b,
-    ) {
+        input: impl Into<UnsignedTxInput>,
+        lock_script: TaggedScript<S::Script>,
+        input_script_builder: S,
+    ) -> InputReference<S> {
         let sig_hash_flags = input_script_builder.sig_hash_flags();
         let func = move |tx_preimage: &[TxPreimage],
                          unsigned_tx: &TxBuilder,
-                         sigs: Vec<ByteArray>,
+                         sigs: Option<Box<dyn Any>>,
                          lock_script: &Script,
                          tx_outputs: &[TxOutput]| {
+            let sigs = match sigs {
+                Some(sigs) => *sigs.downcast::<S::Signatures>().expect("Incompatible sigs"),
+                None => input_script_builder.placeholder_signatures(),
+            };
             let mut ops: Vec<_> = input_script_builder
                 .build_script(tx_preimage, unsigned_tx, sigs, lock_script, tx_outputs)
                 .ops()
                 .into();
             if input_script_builder.is_p2sh() {
-                ops.push(Op::PushByteArray {
-                    array: lock_script.serialize().expect("Cannot encode lock_script"),
-                    is_minimal: true,
-                });
+                ops.push(TaggedOp::from_op(
+                    lock_script
+                        .serialize()
+                        .expect("Cannot encode lock_script")
+                        .into(),
+                ));
             }
             Script::new(ops)
         };
+        let input_idx = self.inputs.len();
         self.inputs.push(TxBuilderInput {
             input: input.into(),
             func_script: Box::new(func),
             sig_hash_flags,
             lock_script: lock_script.into(),
         });
+        InputReference {
+            phantom: PhantomData,
+            input_idx,
+        }
     }
 
     pub fn add_output(&mut self, output: impl Into<TxOutput>) {
@@ -166,11 +196,12 @@ impl<'b> TxBuilder<'b> {
             let n_sigs = input.sig_hash_flags.len();
             let lock_script = Script::new(input.lock_script.ops().into());
             let preimages = vec![TxPreimage::empty_with_script(&lock_script); n_sigs];
-            let fake_sigs = vec![ByteArray::new_unnamed([0; MAX_SIGNATURE_SIZE].as_ref()); n_sigs];
             inputs.push(TxInput {
                 prev_out: input.input.prev_out.clone(),
-                script: (input.func_script)(&preimages, self, fake_sigs, &lock_script, &outputs),
+                script: (input.func_script)(&preimages, self, None, &lock_script, &outputs),
                 sequence: input.input.sequence,
+                lock_script: None,
+                value: None,
             });
         }
         let tx = UnhashedTx {
@@ -184,10 +215,7 @@ impl<'b> TxBuilder<'b> {
             .len()
     }
 
-    fn make_outputs(
-        &self,
-        leftover_amounts: &HashMap<usize, u64>,
-    ) -> Vec<TxOutput> {
+    fn make_outputs(&self, leftover_amounts: &HashMap<usize, u64>) -> Vec<TxOutput> {
         let mut outputs = Vec::new();
         for (idx, output) in self.outputs.iter().enumerate() {
             match *output {
@@ -222,7 +250,6 @@ impl<'b> TxBuilder<'b> {
             .into());
         }
         let mut total_leftover = total_input_amount - known_output_amount;
-        println!("total_leftover: {}", total_leftover);
         let mut leftover_amounts = HashMap::new();
         let mut leftover_precedence = self
             .outputs
@@ -249,7 +276,6 @@ impl<'b> TxBuilder<'b> {
                 leftover_amounts.insert(idx, max_leftover);
                 let new_size = self.estimate_size(self.make_outputs(&leftover_amounts)) as u64;
                 let fee = new_size * fee_per_kb / 1000;
-                println!("fee for idx: {}", fee);
                 if fee <= total_leftover {
                     let leftover = (total_leftover - fee).min(upper_bound);
                     if leftover <= lower_bound {
@@ -264,7 +290,11 @@ impl<'b> TxBuilder<'b> {
             }
         }
         let outputs = self.make_outputs(&leftover_amounts);
-        Ok(UnsignedTx::new(outputs, self))
+        let tx_preimages = TxPreimage::build_preimages(&TxBuilderPreimages {
+            builder: &self,
+            outputs: &outputs,
+        });
+        Ok(UnsignedTx::new(outputs, self, tx_preimages))
     }
 }
 
@@ -277,7 +307,7 @@ impl TxBuilderOutput {
     }
 }
 
-impl ToPreimages for UnsignedTx<'_> {
+impl ToPreimages for TxBuilderPreimages<'_> {
     fn version(&self) -> i32 {
         self.builder.version()
     }
@@ -314,41 +344,76 @@ impl<'b> UnsignedTx<'b> {
     pub fn new(
         outputs: Vec<TxOutput>,
         builder: TxBuilder<'b>,
+        tx_preimages: Vec<Vec<TxPreimage>>,
     ) -> Self {
         UnsignedTx {
+            inputs: vec![None; builder.inputs.len()],
             builder,
             outputs,
+            tx_preimages,
         }
     }
 
-    pub fn complete_tx(
-        self,
-        preimages: Vec<Vec<TxPreimage>>,
-        sigs: Vec<Vec<ByteArray>>,
-    ) -> UnhashedTx {
+    pub fn sign_input_with<S: Signatory>(
+        &mut self,
+        input_token: InputReference<S>,
+        make_sigs: impl FnOnce(&[TxPreimage]) -> S::Signatures,
+    ) {
+        let sigs = make_sigs(&self.tx_preimages[input_token.input_idx]);
+        self.sign_input(input_token, sigs)
+    }
+
+    pub fn sign_input<S: Signatory>(
+        &mut self,
+        input_token: InputReference<S>,
+        sigs: S::Signatures,
+    ) {
+        let input_ref = &mut self.inputs[input_token.input_idx];
+        if input_ref.is_some() {
+            panic!("Input already signed");
+        }
+        let builder_input = &self.builder.inputs[input_token.input_idx];
+        let preimage = &self.tx_preimages[input_token.input_idx];
+        *input_ref = Some(TxInput {
+            prev_out: builder_input.input.prev_out.clone(),
+            script: (builder_input.func_script)(
+                preimage,
+                &self.builder,
+                Some(Box::new(sigs)),
+                &Script::new(builder_input.lock_script.ops().into()),
+                &self.outputs,
+            ),
+            sequence: builder_input.input.sequence,
+            lock_script: Some(builder_input.lock_script.clone()),
+            value: Some(builder_input.input.value),
+        });
+    }
+
+    pub fn preimages(&self) -> &[Vec<TxPreimage>] {
+        &self.tx_preimages
+    }
+
+    pub fn complete_tx(self) -> UnhashedTx {
         let inputs = self
-            .builder
             .inputs
-            .iter()
-            .zip(preimages)
-            .zip(sigs)
-            .map(|((input, preimage), sigs)| TxInput {
-                prev_out: input.input.prev_out.clone(),
-                script: (input.func_script)(
-                    &preimage,
-                    &self.builder,
-                    sigs,
-                    &Script::new(input.lock_script.ops().into()),
-                    &self.outputs,
-                ),
-                sequence: input.input.sequence,
-            })
+            .into_iter()
+            .enumerate()
+            .map(|(idx, input)| input.expect(&format!("Input {} not signed", idx)))
             .collect();
         UnhashedTx {
             version: self.builder.version,
             inputs,
             outputs: self.outputs,
             lock_time: self.builder.lock_time,
+        }
+    }
+}
+
+impl<T> InputReference<T> {
+    pub fn new(input_idx: usize) -> Self {
+        InputReference {
+            phantom: PhantomData,
+            input_idx,
         }
     }
 }
