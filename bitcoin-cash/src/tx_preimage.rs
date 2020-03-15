@@ -1,11 +1,12 @@
 use crate::{
-    encode_bitcoin_code, ByteArray, Hashed, Script, Sha256d, ToPreimages, TxOutpoint,
+    encode_bitcoin_code, BitcoinByteArray, BitcoinDataType, ByteArray, DataType, Hashed, Op,
+    Script, Sha256d, ToPreimages, TxOutpoint,
 };
 use bitflags::bitflags;
 use serde_derive::{Deserialize, Serialize};
 
 bitflags! {
-    #[derive(Deserialize, Serialize)]
+    #[derive(Deserialize, Serialize, Default)]
     pub struct SigHashFlags: u32 {
         const ALL          = 0x01;
         const NONE         = 0x02;
@@ -17,7 +18,7 @@ bitflags! {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct TxPreimage {
     version: i32,
     hash_prevouts: Sha256d,
@@ -29,6 +30,14 @@ pub struct TxPreimage {
     hash_outputs: Sha256d,
     lock_time: u32,
     sighash_flags: SigHashFlags,
+}
+
+impl SigHashFlags {
+    pub fn from_u8(flags: u8) -> Self {
+        let mut sig_hash_flags = Self::DEFAULT;
+        sig_hash_flags.bits = flags as u32;
+        sig_hash_flags
+    }
 }
 
 impl TxPreimage {
@@ -53,14 +62,15 @@ impl TxPreimage {
                         .expect("Cannot encode sequence"),
                 ));
             }
-            Sha256d::digest(sequences_serialized.named("sequences"))
-                .named("hashSequence")
+            Sha256d::digest(sequences_serialized.named("sequences")).named("hashSequence")
         };
-        
+
         let hash_all_outputs = {
             let mut outputs_serialized = ByteArray::from_slice_unnamed(&[]);
             for output_idx in 0..tx.num_outputs() {
-                let byte_array = tx.output_at(output_idx).serialize()
+                let byte_array = tx
+                    .output_at(output_idx)
+                    .serialize()
                     .expect("Cannot encode output")
                     .named(format!("output_{}", output_idx));
                 outputs_serialized = outputs_serialized.concat(byte_array);
@@ -184,5 +194,18 @@ impl TxPreimage {
                 "sighash",
                 self.sighash_flags.bits().to_le_bytes().to_vec(),
             ))
+    }
+}
+
+impl BitcoinDataType for TxPreimage {
+    type Type = BitcoinByteArray;
+    fn to_data(&self) -> Self::Type {
+        BitcoinByteArray(self.to_byte_array())
+    }
+    fn to_pushop(&self) -> Op {
+        self.to_byte_array().into()
+    }
+    fn to_data_type(&self) -> DataType {
+        DataType::ByteArray(None)
     }
 }
