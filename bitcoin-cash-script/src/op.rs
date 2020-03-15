@@ -41,3 +41,12 @@ impl std::fmt::Debug for Op {
         }
     }
 }
+
+impl From<ByteArray> for Op {
+    fn from(array: ByteArray) -> Self {
+        Op::PushByteArray {
+            array,
+            is_minimal: true,
+        }
+    }
+}
