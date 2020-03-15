@@ -4,7 +4,7 @@ version = "0.1.1"
 authors = ["tobiasruck <ruck.tobias@gmail.com>"]
 edition = "2018"
 license = "MIT"
-description = "A procedual macro to ease writing bitcoin cash scripts"
+description = "A procedual macro to ease writing bitcoin cash scripts, base library for the bitcoin-cash library"
 homepage = "https://github.com/be-cash/bitcoin-cash"
 documentation = "https://github.com/be-cash/bitcoin-cash"
 repository = "https://github.com/be-cash/bitcoin-cash"
@@ -13,7 +13,7 @@ repository = "https://github.com/be-cash/bitcoin-cash"
 proc-macro = true
 
 [dependencies]
-bitcoin-cash-base = {path="../bitcoin-cash-base"}
+bitcoin-cash-base = {path="../bitcoin-cash-base", version="0.1.1"}
 
 syn = {version="1.0", features=["full"]}
 quote = "1.0"
