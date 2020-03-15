@@ -13,11 +13,12 @@ impl Default for RustECC {
 }
 
 impl ECC for RustECC {
-    fn sign(&self, secret_key: &[u8], msg_array: ByteArray) -> Result<ByteArray> {
+    fn sign(&self, secret_key: &[u8], msg_array: impl Into<ByteArray>) -> Result<ByteArray> {
+        let msg_array = msg_array.into();
         let sk = SecretKey::parse_slice(secret_key)
             .chain_err(|| ErrorKind::InvalidSize((32, secret_key.len())))?;
-        let msg = Message::parse_slice(&msg_array.data)
-            .chain_err(|| ErrorKind::InvalidSize((32, msg_array.data.len())))?;
+        let msg = Message::parse_slice(&msg_array)
+            .chain_err(|| ErrorKind::InvalidSize((32, msg_array.len())))?;
         let mut sig = secp256k1::sign(&msg, &sk).0;
         sig.normalize_s();
         let sig = sig.serialize_der().as_ref().to_vec();

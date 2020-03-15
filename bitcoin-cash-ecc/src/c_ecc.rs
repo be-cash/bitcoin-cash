@@ -17,7 +17,8 @@ impl Default for CECC {
 }
 
 impl ECC for CECC {
-    fn sign(&self, secret_key: &[u8], msg_array: ByteArray) -> Result<ByteArray> {
+    fn sign(&self, secret_key: &[u8], msg_array: impl Into<ByteArray>) -> Result<ByteArray> {
+        let msg_array = msg_array.into();
         let sk = SecretKey::from_slice(secret_key)
             .chain_err(|| ErrorKind::InvalidSize((32, secret_key.len())))?;
         let msg = Message::from_slice(&msg_array)

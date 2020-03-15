@@ -1,7 +1,7 @@
 use crate::{error::Result, ByteArray, Pubkey};
 
 pub trait ECC: Default {
-    fn sign(&self, secret_key: &[u8], msg_array: ByteArray) -> Result<ByteArray>;
+    fn sign(&self, secret_key: &[u8], msg_array: impl Into<ByteArray>) -> Result<ByteArray>;
 
     fn verify(&self, pubkey: &[u8], msg_array: &[u8], sig: &[u8]) -> Result<bool>;
 
