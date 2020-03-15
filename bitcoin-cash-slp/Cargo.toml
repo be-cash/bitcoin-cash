@@ -3,6 +3,7 @@ name = "bitcoin-cash-slp"
 version = "0.1.1"
 authors = ["tobiasruck <ruck.tobias@gmail.com>"]
 edition = "2018"
+license = "MIT"
 description = "A library for creating SLP transactions"
 homepage = "https://github.com/be-cash/bitcoin-cash"
 documentation = "https://github.com/be-cash/bitcoin-cash"
