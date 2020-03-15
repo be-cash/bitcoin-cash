@@ -1,4 +1,4 @@
-use bitcoin_cash::{error, ByteArray, Hashed, Op, Opcode, Script, Sha256d, TxOutput};
+use bitcoin_cash::{error, ByteArray, Hashed, Op, Opcode, Script, Sha256d, TaggedOp, TxOutput};
 
 #[derive(Clone, Debug, Hash)]
 pub struct TokenId(Sha256d);
@@ -14,6 +14,20 @@ pub enum SlpTxType {
     SEND,
     MINT,
     COMMIT,
+}
+
+pub fn slp_amount_ops<'a>(output_amounts: impl IntoIterator<Item = &'a u64>) -> Vec<Op> {
+    output_amounts
+        .into_iter()
+        .enumerate()
+        .map(|(idx, &output_amount)| Op::PushByteArray {
+            array: ByteArray::new(
+                format!("token_output_quantity{}", idx + 1),
+                output_amount.to_be_bytes().to_vec(),
+            ),
+            is_minimal: false,
+        })
+        .collect()
 }
 
 pub fn slp_send_output(
@@ -32,10 +46,7 @@ pub fn slp_send_output(
             is_minimal: false,
         },
         Op::PushByteArray {
-            array: ByteArray::new(
-                "transaction_type",
-                SlpTxType::SEND.to_string().into_bytes(),
-            ),
+            array: ByteArray::new("transaction_type", SlpTxType::SEND.to_string().into_bytes()),
             is_minimal: false,
         },
         Op::PushByteArray {
@@ -43,18 +54,10 @@ pub fn slp_send_output(
             is_minimal: false,
         },
     ];
-    for (idx, &output_amount) in output_amounts.iter().enumerate() {
-        ops.push(Op::PushByteArray {
-            array: ByteArray::new(
-                format!("token_output_quantity{}", idx + 1),
-                output_amount.to_be_bytes().to_vec(),
-            ),
-            is_minimal: false,
-        });
-    }
+    ops.extend(slp_amount_ops(output_amounts.iter()));
     TxOutput {
         value: 0,
-        script: Script::new(ops),
+        script: Script::new(ops.into_iter().map(TaggedOp::from_op).collect()),
     }
 }
 

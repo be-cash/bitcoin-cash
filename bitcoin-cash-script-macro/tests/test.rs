@@ -1,7 +1,9 @@
 use bitcoin_cash::{ByteArray, Op, Opcode::*, Ops, TaggedOp};
+use pretty_assertions::assert_eq;
 
 #[test]
 fn test_adding() {
+    let line = line!() + 2;
     #[bitcoin_cash::script(Inputs)]
     fn script(_: ()) {
         6;
@@ -9,26 +11,51 @@ fn test_adding() {
         OP_ADD;
     }
     Inputs {};
+    let file_name = file!();
     assert_eq!(
-        script(()).tagged_ops(),
+        script(()).ops().as_ref(),
         &[
             TaggedOp {
-                src: "6".into(),
+                src_code: vec![
+                    (30, "6;".into()),
+                    (40, "6;".into()),
+                    (60, "6;".into()),
+                    (80, "6;".into()),
+                ],
+                src_file: file_name.into(),
+                src_line: line + 1,
+                src_column: 9,
                 op: Op::PushInteger(6),
-                input_names: None,
-                output_names: None,
+                pushed_names: Some(vec![None]),
+                alt_pushed_names: Some(vec![]),
             },
             TaggedOp {
-                src: "5".into(),
+                src_code: vec![
+                    (30, "5;".into()),
+                    (40, "5;".into()),
+                    (60, "5;".into()),
+                    (80, "5;".into()),
+                ],
+                src_file: file_name.into(),
+                src_line: line + 2,
+                src_column: 9,
                 op: Op::PushInteger(5),
-                input_names: None,
-                output_names: None,
+                pushed_names: Some(vec![None]),
+                alt_pushed_names: Some(vec![]),
             },
             TaggedOp {
-                src: "OP_ADD".into(),
+                src_code: vec![
+                    (30, "OP_ADD;".into()),
+                    (40, "OP_ADD;".into()),
+                    (60, "OP_ADD;".into()),
+                    (80, "OP_ADD;".into()),
+                ],
+                src_file: file_name.into(),
+                src_line: line + 3,
+                src_column: 9,
                 op: Op::Code(OP_ADD),
-                input_names: None,
-                output_names: None,
+                pushed_names: Some(vec![None]),
+                alt_pushed_names: Some(vec![]),
             },
         ],
     );
@@ -45,19 +72,18 @@ fn test_catting() {
         OP_CAT;
     }
     assert_eq!(
-        script(()).ops().as_ref(),
+        script(())
+            .ops()
+            .into_iter()
+            .map(|op| &op.op)
+            .collect::<Vec<_>>()
+            .as_slice(),
         &[
-            Op::PushByteArray {
-                array: ByteArray::from_slice_unnamed(b"A"),
-                is_minimal: true,
-            },
-            Op::PushByteArray {
-                array: ByteArray::from_slice_unnamed(b"B"),
-                is_minimal: true,
-            },
-            Op::Code(OP_TUCK),
-            Op::Code(OP_CAT),
-            Op::Code(OP_CAT),
+            &ByteArray::from_slice_unnamed(b"A").into(),
+            &ByteArray::from_slice_unnamed(b"B").into(),
+            &Op::Code(OP_TUCK),
+            &Op::Code(OP_CAT),
+            &Op::Code(OP_CAT),
         ],
     );
 }
@@ -68,89 +94,286 @@ fn test_inputs() {
     fn script(_: (), a: [u8; 1], b: [u8; 1]) {
         OP_CAT;
     }
-    assert_eq!(script(()).ops().as_ref(), &[Op::Code(OP_CAT)],);
+    assert_eq!(
+        script(()).script_ops().collect::<Vec<_>>(),
+        vec![&Op::Code(OP_CAT)]
+    );
     assert_eq!(
         Inputs {
             a: b"A".clone(),
             b: b"B".clone(),
         }
         .ops()
-        .as_ref(),
-        &[
-            Op::PushByteArray {
-                array: ByteArray::from_slice_unnamed(b"A"),
-                is_minimal: true,
-            },
-            Op::PushByteArray {
-                array: ByteArray::from_slice_unnamed(b"B"),
-                is_minimal: true,
-            },
+        .iter()
+        .map(|op| &op.op)
+        .collect::<Vec<_>>(),
+        vec![
+            &ByteArray::from_slice_unnamed(b"A").into(),
+            &ByteArray::from_slice_unnamed(b"B").into(),
         ],
     );
 }
 
 #[test]
 fn test_let() {
-    #[bitcoin_cash::script(Inputs)]
-    fn script(_: (), a: i32, b: i32) {
-        let c = OP_ADD(a, b);
-        let (d, e) = OP_DUP(c);
-        let f = OP_DIV(d, e);
-        {
-            let (g, h) = OP_DUP(f);
-            OP_SUB(g, h);
-        }
+    struct Params {
+        hyperfine_structure: i32,
     }
 
+    let line = line!() + 2;
+    #[bitcoin_cash::script(Inputs)]
+    fn script(params: &Params, alpha: i32, beta: i32) {
+        let hyperfine_structure = params.hyperfine_structure * 1000;
+        let circumference = OP_ADD(beta, hyperfine_structure);
+        let relative_velocity = OP_ADD(alpha, circumference);
+        let (relative_velocity1, relative_velocity2) = OP_DUP(relative_velocity);
+        let f = OP_DIV(relative_velocity1, relative_velocity2);
+        {
+            let (g, __) = OP_DUP(f);
+            OP_SUB(g, __);
+        }
+    }
+    let file_name = file!();
+
+    let params = Params {
+        hyperfine_structure: 1337,
+    };
+
     assert_eq!(
-        script(()).tagged_ops(),
+        script(&params).ops().as_ref(),
         &[
             TaggedOp {
-                src: "let c = OP_ADD (a, b) ;".into(),
+                src_code: vec![
+                    (
+                        30,
+                        "\
+let hyperfine_structure =
+    params
+        .hyperfine_structure
+        * 1000;"
+                            .into()
+                    ),
+                    (
+                        40,
+                        "\
+let hyperfine_structure =
+    params.hyperfine_structure * 1000;"
+                            .into()
+                    ),
+                    (
+                        60,
+                        "let hyperfine_structure = params.hyperfine_structure * 1000;".into()
+                    ),
+                    (
+                        80,
+                        "let hyperfine_structure = params.hyperfine_structure * 1000;".into()
+                    ),
+                ],
+                src_file: file_name.into(),
+                src_line: line + 1,
+                src_column: 35,
+                op: Op::PushInteger(1337 * 1000),
+                pushed_names: Some(vec![Some("hyperfine_structure".into())]),
+                alt_pushed_names: Some(vec![]),
+            },
+            TaggedOp {
+                src_code: vec![
+                    (
+                        30,
+                        "\
+let circumference = OP_ADD(
+    beta,
+    hyperfine_structure,
+);"
+                        .into()
+                    ),
+                    (
+                        40,
+                        "\
+let circumference =
+    OP_ADD(beta, hyperfine_structure);"
+                            .into()
+                    ),
+                    (
+                        60,
+                        "let circumference = OP_ADD(beta, hyperfine_structure);".into()
+                    ),
+                    (
+                        80,
+                        "let circumference = OP_ADD(beta, hyperfine_structure);".into()
+                    ),
+                ],
+                src_file: file_name.into(),
+                src_line: line + 2,
+                src_column: 29,
                 op: Op::Code(OP_ADD),
-                input_names: Some(vec!["a".into(), "b".into()]),
-                output_names: Some(vec!["c".into()]),
+                pushed_names: Some(vec![Some("circumference".into())]),
+                alt_pushed_names: Some(vec![]),
             },
             TaggedOp {
-                src: "let (d, e) = OP_DUP (c) ;".into(),
+                src_code: vec![
+                    (
+                        30,
+                        "\
+let relative_velocity =
+    OP_ADD(
+        alpha,
+        circumference,
+    );"
+                        .into()
+                    ),
+                    (
+                        40,
+                        "\
+let relative_velocity =
+    OP_ADD(alpha, circumference);"
+                            .into()
+                    ),
+                    (
+                        60,
+                        "let relative_velocity = OP_ADD(alpha, circumference);".into()
+                    ),
+                    (
+                        80,
+                        "let relative_velocity = OP_ADD(alpha, circumference);".into()
+                    ),
+                ],
+                src_file: file_name.into(),
+                src_line: line + 3,
+                src_column: 33,
+                op: Op::Code(OP_ADD),
+                pushed_names: Some(vec![Some("relative_velocity".into())]),
+                alt_pushed_names: Some(vec![]),
+            },
+            TaggedOp {
+                src_code: vec![
+                    (
+                        30,
+                        "\
+let (
+    relative_velocity1,
+    relative_velocity2,
+) = OP_DUP(relative_velocity);"
+                            .into()
+                    ),
+                    (
+                        40,
+                        "\
+let (
+    relative_velocity1,
+    relative_velocity2,
+) = OP_DUP(relative_velocity);"
+                            .into()
+                    ),
+                    (
+                        60,
+                        "\
+let (relative_velocity1, relative_velocity2) =
+    OP_DUP(relative_velocity);"
+                            .into()
+                    ),
+                    (
+                        80,
+                        "let (relative_velocity1, relative_velocity2) = OP_DUP(relative_velocity);"
+                            .into()
+                    ),
+                ],
+                src_file: file_name.into(),
+                src_line: line + 4,
+                src_column: 56,
                 op: Op::Code(OP_DUP),
-                input_names: Some(vec!["c".into()]),
-                output_names: Some(vec!["d".into(), "e".into()]),
+                pushed_names: Some(vec![
+                    Some("relative_velocity1".into()),
+                    Some("relative_velocity2".into())
+                ]),
+                alt_pushed_names: Some(vec![]),
             },
             TaggedOp {
-                src: "let f = OP_DIV (d, e) ;".into(),
+                src_code: vec![
+                    (
+                        30,
+                        "\
+let f = OP_DIV(
+    relative_velocity1,
+    relative_velocity2,
+);"
+                        .into()
+                    ),
+                    (
+                        40,
+                        "\
+let f = OP_DIV(
+    relative_velocity1,
+    relative_velocity2,
+);"
+                        .into()
+                    ),
+                    (
+                        60,
+                        "let f = OP_DIV(relative_velocity1, relative_velocity2);".into()
+                    ),
+                    (
+                        80,
+                        "let f = OP_DIV(relative_velocity1, relative_velocity2);".into()
+                    ),
+                ],
+                src_file: file_name.into(),
+                src_line: line + 5,
+                src_column: 17,
                 op: Op::Code(OP_DIV),
-                input_names: Some(vec!["d".into(), "e".into()]),
-                output_names: Some(vec!["f".into()]),
+                pushed_names: Some(vec![Some("f".into())]),
+                alt_pushed_names: Some(vec![]),
             },
             TaggedOp {
-                src: "let (g, h) = OP_DUP (f) ;".into(),
+                src_code: vec![
+                    (30, "let (g, __) = OP_DUP(f);".into()),
+                    (40, "let (g, __) = OP_DUP(f);".into()),
+                    (60, "let (g, __) = OP_DUP(f);".into()),
+                    (80, "let (g, __) = OP_DUP(f);".into()),
+                ],
+                src_file: file_name.into(),
+                src_line: line + 7,
+                src_column: 27,
                 op: Op::Code(OP_DUP),
-                input_names: Some(vec!["f".into()]),
-                output_names: Some(vec!["g".into(), "h".into()]),
+                pushed_names: Some(vec![Some("g".into()), Some("f".into())]),
+                alt_pushed_names: Some(vec![]),
             },
             TaggedOp {
-                src: "OP_SUB (g, h)".into(),
+                src_code: vec![
+                    (30, "OP_SUB(g, __);".into()),
+                    (40, "OP_SUB(g, __);".into()),
+                    (60, "OP_SUB(g, __);".into()),
+                    (80, "OP_SUB(g, __);".into()),
+                ],
+                src_file: file_name.into(),
+                src_line: line + 8,
+                src_column: 13,
                 op: Op::Code(OP_SUB),
-                input_names: Some(vec!["g".into(), "h".into()]),
-                output_names: None,
+                pushed_names: Some(vec![None]),
+                alt_pushed_names: Some(vec![]),
             },
         ],
     );
 
     assert_eq!(
-        script(()).ops().as_ref(),
+        &script(&params).script_ops().collect::<Vec<_>>(),
         &[
-            Op::Code(OP_ADD),
-            Op::Code(OP_DUP),
-            Op::Code(OP_DIV),
-            Op::Code(OP_DUP),
-            Op::Code(OP_SUB),
+            &Op::PushInteger(1337 * 1000),
+            &Op::Code(OP_ADD),
+            &Op::Code(OP_ADD),
+            &Op::Code(OP_DUP),
+            &Op::Code(OP_DIV),
+            &Op::Code(OP_DUP),
+            &Op::Code(OP_SUB),
         ],
     );
     assert_eq!(
-        Inputs { a: 5, b: 6 }.ops().as_ref(),
-        &[Op::PushInteger(5), Op::PushInteger(6),],
+        Inputs { alpha: 5, beta: 6 }
+            .ops()
+            .iter()
+            .map(|op| &op.op)
+            .collect::<Vec<_>>(),
+        &[&Op::PushInteger(5), &Op::PushInteger(6)],
     );
 }
 
@@ -166,21 +389,26 @@ fn test_if() {
         let y = 3;
         OP_DIV(_x, y);
     }
+
     assert_eq!(
-        script(()).ops().as_ref(),
+        &script(()).script_ops().collect::<Vec<_>>(),
         &[
-            Op::Code(OP_IF),
-            Op::Code(OP_1ADD),
-            Op::Code(OP_ELSE),
-            Op::Code(OP_1SUB),
-            Op::Code(OP_ENDIF),
-            Op::PushInteger(3),
-            Op::Code(OP_DIV),
+            &Op::Code(OP_IF),
+            &Op::Code(OP_1ADD),
+            &Op::Code(OP_ELSE),
+            &Op::Code(OP_1SUB),
+            &Op::Code(OP_ENDIF),
+            &Op::PushInteger(3),
+            &Op::Code(OP_DIV),
         ],
     );
     assert_eq!(
-        Inputs { a: 5, b: true }.ops().as_ref(),
-        &[Op::PushInteger(5), Op::PushBoolean(true),],
+        Inputs { a: 5, b: true }
+            .ops()
+            .iter()
+            .map(|op| &op.op)
+            .collect::<Vec<_>>(),
+        &[&Op::PushInteger(5), &Op::PushBoolean(true),],
     );
 }
 
@@ -203,7 +431,7 @@ fn test_params() {
         OP_IF(b);
         {
             let sum2 = OP_ADD(a, sum);
-            let n = 4;
+            let _n = 4;
         }
         OP_ELSE;
         {
@@ -224,28 +452,28 @@ fn test_params() {
     };
 
     assert_eq!(
-        script(&params).ops().as_ref(),
+        &script(&params).script_ops().collect::<Vec<_>>(),
         &[
-            Op::PushByteArray {
+            &Op::PushByteArray {
                 array: params.p2.into(),
                 is_minimal: true,
             },
-            Op::Code(OP_CAT),
-            Op::Code(OP_BIN2NUM),
-            Op::PushInteger(params.p1),
-            Op::Code(OP_ADD),
-            Op::Code(OP_SWAP),
-            Op::Code(OP_IF),
-            Op::Code(OP_ADD),
-            Op::PushInteger(4),
-            Op::Code(OP_ELSE),
-            Op::Code(OP_SUB),
-            Op::PushInteger(4),
-            Op::Code(OP_ENDIF),
-            Op::Code(OP_NUM2BIN),
-            Op::Code(OP_BIN2NUM),
-            Op::PushInteger(params.p3),
-            Op::Code(OP_GREATERTHAN),
+            &Op::Code(OP_CAT),
+            &Op::Code(OP_BIN2NUM),
+            &Op::PushInteger(params.p1),
+            &Op::Code(OP_ADD),
+            &Op::Code(OP_SWAP),
+            &Op::Code(OP_IF),
+            &Op::Code(OP_ADD),
+            &Op::PushInteger(4),
+            &Op::Code(OP_ELSE),
+            &Op::Code(OP_SUB),
+            &Op::PushInteger(4),
+            &Op::Code(OP_ENDIF),
+            &Op::Code(OP_NUM2BIN),
+            &Op::Code(OP_BIN2NUM),
+            &Op::PushInteger(params.p3),
+            &Op::Code(OP_GREATERTHAN),
         ],
     );
 }
@@ -263,14 +491,14 @@ fn test_depth_of() {
     }
 
     assert_eq!(
-        script(()).ops().as_ref(),
+        &script(()).script_ops().collect::<Vec<_>>(),
         &[
-            Op::PushInteger(6),
-            Op::PushInteger(5),
-            Op::PushInteger(4),
-            Op::PushInteger(2),
-            Op::Code(OP_PICK),
-            Op::Code(OP_1ADD),
+            &Op::PushInteger(6),
+            &Op::PushInteger(5),
+            &Op::PushInteger(4),
+            &Op::PushInteger(2),
+            &Op::Code(OP_PICK),
+            &Op::Code(OP_1ADD),
         ],
     );
 }
@@ -307,16 +535,18 @@ fn test_generics() {
         let (b, c) = OP_SPLIT(a, _4);
     }
     assert_eq!(
-        script(()).ops().as_ref(),
-        &[Op::PushInteger(4), Op::Code(OP_SPLIT),],
+        &script(()).script_ops().collect::<Vec<_>>(),
+        &[&Op::PushInteger(4), &Op::Code(OP_SPLIT)],
     );
     assert_eq!(
         Inputs {
             a: ByteArray::from_slice("a", b"")
         }
         .ops()
-        .as_ref(),
-        &[Op::PushByteArray {
+        .iter()
+        .map(|op| &op.op)
+        .collect::<Vec<_>>(),
+        vec![&Op::PushByteArray {
             array: ByteArray::from_slice("a", b""),
             is_minimal: true,
         }],
@@ -326,12 +556,7 @@ fn test_generics() {
 #[test]
 fn test_variants() {
     #[bitcoin_cash::script(Inputs, A = "!p1", B = "p1")]
-    fn script(
-        _: (),
-        #[variant(A)] a: ByteArray,
-        #[variant(A, B)] b: ByteArray,
-        c: ByteArray,
-    ) {
+    fn script(_: (), #[variant(A)] a: ByteArray, #[variant(A, B)] b: ByteArray, c: ByteArray) {
         let empty_str = b"";
         let p1 = OP_EQUAL(c, empty_str);
         OP_IF(p1);

@@ -1,4 +1,4 @@
-use proc_macro2::Span;
+use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
 
 pub struct Script {
@@ -9,7 +9,7 @@ pub struct Script {
     pub vis: syn::Visibility,
     pub sig: syn::Signature,
     pub inputs: Vec<ScriptInput>,
-    pub stmts: Vec<Stmt>,
+    pub stmts: Vec<TaggedStmt>,
 }
 
 pub struct ScriptVariant {
@@ -29,18 +29,25 @@ pub struct VariantPredicateAtom {
 }
 
 pub struct ScriptInput {
+    pub token_stream: TokenStream,
     pub ident: syn::Ident,
     pub ty: syn::Type,
     pub variants: Option<Vec<syn::Ident>>,
 }
 
 #[derive(Clone)]
+pub struct TaggedStmt {
+    pub token_stream: TokenStream,
+    pub stmt: Stmt,
+}
+
+#[derive(Clone)]
 pub enum Stmt {
-    Push(String, PushStmt),
-    Opcode(String, OpcodeStmt),
+    Push(PushStmt),
+    Opcode(OpcodeStmt),
     ForLoop(ForLoopStmt),
     RustIf(RustIfStmt),
-    ScriptIf(String, ScriptIfStmt),
+    ScriptIf(ScriptIfStmt),
 }
 
 #[derive(Clone)]
@@ -58,7 +65,8 @@ pub enum OpcodeInput {
 
 #[derive(Clone)]
 pub struct OpcodeStmt {
-    pub span: Span,
+    pub expr_span: Span,
+    pub outputs_span: Span,
     pub ident: syn::Ident,
     pub input_names: Option<Vec<OpcodeInput>>,
     pub output_names: Option<Vec<syn::Ident>>,
@@ -70,7 +78,7 @@ pub struct ForLoopStmt {
     pub attrs: Vec<syn::Attribute>,
     pub pat: syn::Pat,
     pub expr: syn::Expr,
-    pub stmts: Vec<Stmt>,
+    pub stmts: Vec<TaggedStmt>,
 }
 
 #[derive(Clone)]
@@ -78,17 +86,20 @@ pub struct RustIfStmt {
     pub span: Span,
     pub attrs: Vec<syn::Attribute>,
     pub cond: syn::Expr,
-    pub then_branch: Vec<Stmt>,
-    pub else_branch: Option<Vec<Stmt>>,
+    pub then_branch: Vec<TaggedStmt>,
+    pub else_branch: Option<Vec<TaggedStmt>>,
 }
 
 #[derive(Clone)]
 pub struct ScriptIfStmt {
+    pub if_token_stream: TokenStream,
     pub if_opcode: OpcodeStmt,
+    pub else_token_stream: Option<TokenStream>,
     pub else_opcode: Option<OpcodeStmt>,
+    pub endif_token_stream: TokenStream,
     pub endif_opcode: OpcodeStmt,
-    pub then_stmts: Vec<Stmt>,
-    pub else_stmts: Vec<Stmt>,
+    pub then_stmts: Vec<TaggedStmt>,
+    pub else_stmts: Vec<TaggedStmt>,
 }
 
 impl std::fmt::Display for OpcodeInput {

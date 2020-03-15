@@ -1,5 +1,6 @@
 extern crate proc_macro;
 
+mod gen_source;
 mod generate;
 mod ir;
 mod parse;
@@ -23,6 +24,9 @@ pub fn script(
             predicate_atoms: vec![],
         },
         n_ident: 0,
+        stmt_idx: 0,
+        max_line_widths: vec![30, 40, 60, 80],
+        formatted_lines: vec![],
     };
     let result = generate_script.run(parsed_script);
     result.into()

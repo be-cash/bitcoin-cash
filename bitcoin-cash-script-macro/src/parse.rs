@@ -1,5 +1,5 @@
-use proc_macro2::Span;
-use quote::ToTokens;
+use proc_macro2::{Span, TokenStream};
+use quote::{quote, ToTokens};
 use syn::spanned::Spanned;
 
 use crate::ir;
@@ -190,6 +190,7 @@ fn parse_script_input(sig_span: Span, input: &syn::PatType) -> Result<ir::Script
     }
     if let syn::Pat::Ident(pat_ident) = &*input.pat {
         return Ok(ir::ScriptInput {
+            token_stream: input.to_token_stream(),
             ident: pat_ident.ident.clone(),
             ty: (*input.ty).clone(),
             variants,
@@ -202,7 +203,7 @@ fn parse_script_input(sig_span: Span, input: &syn::PatType) -> Result<ir::Script
     }
 }
 
-fn parse_stmts(stmts: Vec<syn::Stmt>) -> Result<Vec<ir::Stmt>, syn::Error> {
+fn parse_stmts(stmts: Vec<syn::Stmt>) -> Result<Vec<ir::TaggedStmt>, syn::Error> {
     let mut result_stmts = Vec::new();
     for stmt in stmts {
         result_stmts.append(&mut parse_stmt(stmt)?);
@@ -210,11 +211,11 @@ fn parse_stmts(stmts: Vec<syn::Stmt>) -> Result<Vec<ir::Stmt>, syn::Error> {
     parse_op_if(result_stmts)
 }
 
-fn parse_stmt(stmt: syn::Stmt) -> Result<Vec<ir::Stmt>, syn::Error> {
+fn parse_stmt(stmt: syn::Stmt) -> Result<Vec<ir::TaggedStmt>, syn::Error> {
+    let token_stream = stmt.to_token_stream();
     match stmt {
         syn::Stmt::Local(local) => {
             let span = local.span();
-            let src = format!("{}", local.to_token_stream());
             let (_, expr) = local.init.ok_or(syn::Error::new(
                 span,
                 format!("Expected opcode after `let`"),
@@ -250,72 +251,74 @@ fn parse_stmt(stmt: syn::Stmt) -> Result<Vec<ir::Stmt>, syn::Error> {
                     )
                 }
             };
-            match *expr {
-                expr @ syn::Expr::Call(_) | expr @ syn::Expr::Path(_) => {
-                    Ok(vec![ir::Stmt::Opcode(
-                        src,
-                        parse_opcode(expr, Some(outputs))?,
-                    )])
-                }
-                expr => {
-                    if outputs.len() != 1 {
-                        return unexpected_error_msg(local.pat, "Expected single output");
+            Ok(vec![ir::TaggedStmt {
+                token_stream,
+                stmt: match *expr {
+                    expr @ syn::Expr::Call(_) | expr @ syn::Expr::Path(_) => {
+                        ir::Stmt::Opcode(parse_opcode(local.pat.span(), expr, Some(outputs))?)
                     }
-                    Ok(vec![ir::Stmt::Push(
-                        src,
-                        ir::PushStmt {
+                    expr => {
+                        if outputs.len() != 1 {
+                            return unexpected_error_msg(local.pat, "Expected single output");
+                        }
+                        ir::Stmt::Push(ir::PushStmt {
                             span: expr.span(),
                             expr,
                             output_name: Some(outputs[0].clone()),
-                        },
-                    )])
-                }
-            }
+                        })
+                    }
+                },
+            }])
         }
         syn::Stmt::Expr(expr) | syn::Stmt::Semi(expr, _) => parse_stmt_expr(expr),
         syn::Stmt::Item(item) => unexpected_error_msg(item, "Unexpected Item"),
     }
 }
 
-fn parse_stmt_expr(expr: syn::Expr) -> Result<Vec<ir::Stmt>, syn::Error> {
+fn parse_stmt_expr(expr: syn::Expr) -> Result<Vec<ir::TaggedStmt>, syn::Error> {
+    let token_stream = expr.to_token_stream();
     match expr {
-        syn::Expr::ForLoop(expr_for_loop) => Ok(vec![ir::Stmt::ForLoop(ir::ForLoopStmt {
-            span: expr_for_loop.span(),
-            attrs: expr_for_loop.attrs,
-            pat: expr_for_loop.pat,
-            expr: *expr_for_loop.expr,
-            stmts: parse_stmts(expr_for_loop.body.stmts)?,
-        })]),
-        syn::Expr::If(expr_if) => Ok(vec![ir::Stmt::RustIf(ir::RustIfStmt {
-            span: expr_if.span(),
-            attrs: expr_if.attrs,
-            cond: *expr_if.cond,
-            then_branch: parse_stmts(expr_if.then_branch.stmts)?,
-            else_branch: expr_if
-                .else_branch
-                .map(|(_, expr)| parse_stmt_expr(*expr))
-                .map_or(Ok(None), |v| v.map(Some))?,
-        })]),
+        syn::Expr::ForLoop(expr_for_loop) => Ok(vec![ir::TaggedStmt {
+            token_stream,
+            stmt: ir::Stmt::ForLoop(ir::ForLoopStmt {
+                span: expr_for_loop.span(),
+                attrs: expr_for_loop.attrs,
+                pat: expr_for_loop.pat,
+                expr: *expr_for_loop.expr,
+                stmts: parse_stmts(expr_for_loop.body.stmts)?,
+            }),
+        }]),
+        syn::Expr::If(expr_if) => Ok(vec![ir::TaggedStmt {
+            token_stream,
+            stmt: ir::Stmt::RustIf(ir::RustIfStmt {
+                span: expr_if.span(),
+                attrs: expr_if.attrs,
+                cond: *expr_if.cond,
+                then_branch: parse_stmts(expr_if.then_branch.stmts)?,
+                else_branch: expr_if
+                    .else_branch
+                    .map(|(_, expr)| parse_stmt_expr(*expr))
+                    .map_or(Ok(None), |v| v.map(Some))?,
+            }),
+        }]),
         syn::Expr::Block(expr_block) => parse_stmts(expr_block.block.stmts),
-        expr @ syn::Expr::Call(_) | expr @ syn::Expr::Path(_) => {
-            let src = format!("{}", expr.to_token_stream());
-            Ok(vec![ir::Stmt::Opcode(src, parse_opcode(expr, None)?)])
-        }
-        expr => {
-            let src = format!("{}", expr.to_token_stream());
-            Ok(vec![ir::Stmt::Push(
-                src,
-                ir::PushStmt {
-                    span: expr.span(),
-                    expr,
-                    output_name: None,
-                },
-            )])
-        }
+        expr @ syn::Expr::Call(_) | expr @ syn::Expr::Path(_) => Ok(vec![ir::TaggedStmt {
+            token_stream,
+            stmt: ir::Stmt::Opcode(parse_opcode(expr.span(), expr, None)?),
+        }]),
+        expr => Ok(vec![ir::TaggedStmt {
+            token_stream,
+            stmt: ir::Stmt::Push(ir::PushStmt {
+                span: expr.span(),
+                expr,
+                output_name: None,
+            }),
+        }]),
     }
 }
 
 fn parse_opcode(
+    outputs_span: Span,
     expr: syn::Expr,
     output_names: Option<Vec<syn::Ident>>,
 ) -> Result<ir::OpcodeStmt, syn::Error> {
@@ -342,7 +345,8 @@ fn parse_opcode(
     }
     let ident = path.segments[0].ident.clone();
     Ok(ir::OpcodeStmt {
-        span,
+        outputs_span,
+        expr_span: span,
         ident,
         input_names,
         output_names,
@@ -367,27 +371,30 @@ fn parse_opcode_inputs(
     Ok(inputs)
 }
 
-fn parse_op_if(stmts: Vec<ir::Stmt>) -> Result<Vec<ir::Stmt>, syn::Error> {
+fn parse_op_if(stmts: Vec<ir::TaggedStmt>) -> Result<Vec<ir::TaggedStmt>, syn::Error> {
     let mut new_stmts = Vec::new();
     let mut if_stack = Vec::new();
     let mut is_then = true;
     struct If {
         if_opcode: ir::OpcodeStmt,
-        if_src: String,
+        if_token_stream: TokenStream,
         else_opcode: Option<ir::OpcodeStmt>,
-        else_src: Option<String>,
-        then_stmts: Vec<ir::Stmt>,
-        else_stmts: Vec<ir::Stmt>,
+        else_token_stream: Option<TokenStream>,
+        then_stmts: Vec<ir::TaggedStmt>,
+        else_stmts: Vec<ir::TaggedStmt>,
     }
     for stmt in stmts {
         let stmt = match stmt {
-            ir::Stmt::Opcode(src, opcode) => match opcode.ident.to_string().as_str() {
+            ir::TaggedStmt {
+                token_stream,
+                stmt: ir::Stmt::Opcode(opcode),
+            } => match opcode.ident.to_string().as_str() {
                 "OP_IF" | "OP_NOTIF" => {
                     if_stack.push(If {
                         if_opcode: opcode,
-                        if_src: src,
+                        if_token_stream: token_stream,
                         else_opcode: None,
-                        else_src: None,
+                        else_token_stream: None,
                         then_stmts: vec![],
                         else_stmts: vec![],
                     });
@@ -396,29 +403,35 @@ fn parse_op_if(stmts: Vec<ir::Stmt>) -> Result<Vec<ir::Stmt>, syn::Error> {
                 }
                 "OP_ELSE" => {
                     is_then = false;
-                    let top_if = if_stack
-                        .last_mut()
-                        .ok_or_else(|| syn::Error::new(opcode.span, "No previous OP_IF found."))?;
+                    let top_if = if_stack.last_mut().ok_or_else(|| {
+                        syn::Error::new(opcode.expr_span, "No previous OP_IF found.")
+                    })?;
                     top_if.else_opcode = Some(opcode);
-                    top_if.else_src = Some(src);
+                    top_if.else_token_stream = Some(token_stream);
                     continue;
                 }
                 "OP_ENDIF" => {
-                    let top_if = if_stack
-                        .pop()
-                        .ok_or_else(|| syn::Error::new(opcode.span, "No previous OP_IF found."))?;
-                    ir::Stmt::ScriptIf(
-                        top_if.if_src,
-                        ir::ScriptIfStmt {
+                    let top_if = if_stack.pop().ok_or_else(|| {
+                        syn::Error::new(opcode.expr_span, "No previous OP_IF found.")
+                    })?;
+                    ir::TaggedStmt {
+                        token_stream: quote! {},
+                        stmt: ir::Stmt::ScriptIf(ir::ScriptIfStmt {
+                            if_token_stream: top_if.if_token_stream,
                             if_opcode: top_if.if_opcode,
+                            else_token_stream: top_if.else_token_stream,
                             else_opcode: top_if.else_opcode,
                             endif_opcode: opcode,
+                            endif_token_stream: token_stream,
                             then_stmts: top_if.then_stmts,
                             else_stmts: top_if.else_stmts,
-                        },
-                    )
+                        }),
+                    }
                 }
-                _ => ir::Stmt::Opcode(src, opcode),
+                _ => ir::TaggedStmt {
+                    token_stream,
+                    stmt: ir::Stmt::Opcode(opcode),
+                },
             },
             stmt => stmt,
         };
@@ -434,7 +447,10 @@ fn parse_op_if(stmts: Vec<ir::Stmt>) -> Result<Vec<ir::Stmt>, syn::Error> {
         }
     }
     if let Some(last_if) = if_stack.last() {
-        return Err(syn::Error::new(last_if.if_opcode.span, "Unclosed OP_IF."));
+        return Err(syn::Error::new(
+            last_if.if_opcode.expr_span,
+            "Unclosed OP_IF.",
+        ));
     }
     return Ok(new_stmts);
 }

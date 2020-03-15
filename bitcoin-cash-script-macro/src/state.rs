@@ -1,5 +1,7 @@
 use crate::ir;
 use bitcoin_cash_script::Integer;
+use proc_macro2::TokenStream;
+use quote::quote;
 use std::collections::HashMap;
 
 #[derive(Clone)]
@@ -21,6 +23,17 @@ pub struct State {
 pub struct VariantStates {
     pub states: HashMap<syn::Ident, State>,
     pub predicate_atoms: Vec<ir::VariantPredicateAtom>,
+}
+
+impl StackItem {
+    pub fn name_tokens(&self) -> TokenStream {
+        if self.has_generated_name {
+            quote! { None }
+        } else {
+            let name = &self.name;
+            quote! { Some(#name.into()) }
+        }
+    }
 }
 
 impl VariantStates {
