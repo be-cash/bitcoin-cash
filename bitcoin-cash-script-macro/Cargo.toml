@@ -1,6 +1,6 @@
 [package]
 name = "bitcoin-cash-script-macro"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["tobiasruck <ruck.tobias@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -13,7 +13,7 @@ repository = "https://github.com/be-cash/bitcoin-cash"
 proc-macro = true
 
 [dependencies]
-bitcoin-cash-base = {path="../bitcoin-cash-base", version="0.1.1"}
+bitcoin-cash-base = {path="../bitcoin-cash-base", version="0.1.2"}
 
 syn = {version="1.0", features=["full"]}
 quote = "1.0"
