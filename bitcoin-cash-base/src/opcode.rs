@@ -2635,6 +2635,10 @@ impl Opcode {
         }
     }
 
+    pub fn is_push_op(self) {
+        
+    }
+
     pub fn retains_input(self) -> bool {
         use Opcode::*;
         match self {
@@ -2712,7 +2716,7 @@ impl Opcode {
                 &[T, T, T, T],
                 &[T, T, T, T],
                 &[2, 3, 0, 1],
-                &[Moved, Moved, MovedIndirectly, MovedIndirectly],
+                &[MovedIndirectly, MovedIndirectly, Moved, Moved],
             ),
             OP_DEPTH => o(&[], &[Integer], &[0], &[Added]),
             OP_DROP => o(&[T], &[], &[], &[]),
