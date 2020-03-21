@@ -24,6 +24,9 @@ pub struct TxInput {
 
     #[serde(skip)]
     pub value: Option<u64>,
+
+    #[serde(skip)]
+    pub is_p2sh: Option<bool>,
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]

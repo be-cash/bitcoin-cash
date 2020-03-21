@@ -64,6 +64,7 @@ struct JsonInput {
     sequence: u32,
     lock_script: Option<Vec<JsonTaggedOp>>,
     value: Option<u64>,
+    is_p2sh: Option<bool>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -129,6 +130,7 @@ impl JsonTx {
                     .as_ref()
                     .map(|script| json_tx.make_ops(script.ops().iter())),
                 value: input.value,
+                is_p2sh: input.is_p2sh,
             };
             json_tx.inputs.push(json_input);
         }
@@ -182,6 +184,7 @@ impl JsonTx {
                     })
                     .map_or(Ok(None), |name| name.map(Some))?,
                 value: input.value,
+                is_p2sh: input.is_p2sh,
             };
             tx.inputs.push(input);
         }

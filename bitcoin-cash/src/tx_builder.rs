@@ -22,6 +22,7 @@ struct TxBuilderInput<'b> {
     >,
     sig_hash_flags: Vec<SigHashFlags>,
     lock_script: Script,
+    is_p2sh: bool,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -118,6 +119,7 @@ impl<'b> TxBuilder<'b> {
         input_script_builder: S,
     ) -> InputReference<S> {
         let sig_hash_flags = input_script_builder.sig_hash_flags();
+        let is_p2sh = input_script_builder.is_p2sh();
         let func = move |tx_preimage: &[TxPreimage],
                          unsigned_tx: &TxBuilder,
                          sigs: Option<Box<dyn Any>>,
@@ -147,6 +149,7 @@ impl<'b> TxBuilder<'b> {
             func_script: Box::new(func),
             sig_hash_flags,
             lock_script: lock_script.into(),
+            is_p2sh,
         });
         InputReference {
             phantom: PhantomData,
@@ -202,6 +205,7 @@ impl<'b> TxBuilder<'b> {
                 sequence: input.input.sequence,
                 lock_script: None,
                 value: None,
+                is_p2sh: None,
             });
         }
         let tx = UnhashedTx {
@@ -386,6 +390,7 @@ impl<'b> UnsignedTx<'b> {
             sequence: builder_input.input.sequence,
             lock_script: Some(builder_input.lock_script.clone()),
             value: Some(builder_input.input.value),
+            is_p2sh: Some(builder_input.is_p2sh),
         });
     }
 
