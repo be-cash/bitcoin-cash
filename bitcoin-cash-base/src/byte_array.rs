@@ -116,6 +116,10 @@ impl ByteArray {
         self.preimage.as_ref().map(|preimage| preimage.as_ref())
     }
 
+    pub fn preimage_arc(&self) -> Option<&Arc<[ByteArray]>> {
+        self.preimage.as_ref()
+    }
+
     pub fn name(&self) -> Option<&str> {
         self.name.as_ref().map(|name| (*(*name).as_ref()).as_ref())
     }
