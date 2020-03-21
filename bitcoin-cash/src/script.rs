@@ -4,21 +4,22 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
 use std::io::Read;
+use std::sync::Arc;
 
-#[derive(Clone, Debug, Eq, PartialEq, Default)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Script {
-    ops: Vec<TaggedOp>,
+    ops: Arc<[TaggedOp]>,
 }
 
 impl Ops for Script {
     fn ops(&self) -> Cow<[TaggedOp]> {
-        self.ops.as_slice().into()
+        self.ops.as_ref().into()
     }
 }
 
 impl Script {
-    pub fn new(ops: Vec<TaggedOp>) -> Self {
-        Script { ops }
+    pub fn new(ops: impl Into<Arc<[TaggedOp]>>) -> Self {
+        Script { ops: ops.into() }
     }
 
     pub fn serialize(&self) -> Result<ByteArray> {
@@ -27,8 +28,8 @@ impl Script {
 }
 
 impl Script {
-    pub fn into_vec(self) -> Vec<TaggedOp> {
-        self.ops
+    pub fn ops_arc(&self) -> &Arc<[TaggedOp]> {
+        &self.ops
     }
 
     pub fn to_script_code(&self, n_codesep: Option<usize>) -> Script {
@@ -60,10 +61,16 @@ impl Script {
             .iter()
             .position(|op| op.op == Op::Code(Opcode::OP_CODESEPARATOR))
         {
-            Script::new(self.ops[code_separator_idx + 1..].as_ref().into())
+            Script::new(self.ops[code_separator_idx + 1..].to_vec())
         } else {
             self.clone()
         }
+    }
+}
+
+impl Default for Script {
+    fn default() -> Self {
+        Script { ops: Arc::new([]) }
     }
 }
 

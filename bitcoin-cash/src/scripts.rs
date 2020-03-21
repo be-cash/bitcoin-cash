@@ -1,5 +1,5 @@
 use crate::{
-    Address, AddressType, ByteArray, Opcode::*, Ops, Pubkey, Script, SigHashFlags, Signatory,
+    Address, AddressType, ByteArray, Opcode::*, Pubkey, Script, SigHashFlags, Signatory,
     TxBuilder, TxOutput, TxPreimage, MAX_SIGNATURE_SIZE,
 };
 
@@ -28,8 +28,8 @@ pub fn p2sh_script(address: &Address, redeem_script: ByteArray) {
 impl Into<Script> for &'_ Address<'_> {
     fn into(self) -> Script {
         match self.addr_type() {
-            AddressType::P2SH => Script::new(p2sh_script(self).ops().into_owned().into()),
-            AddressType::P2PKH => Script::new(p2pkh_script(self).ops().into_owned().into()),
+            AddressType::P2SH => p2sh_script(self).into(),
+            AddressType::P2PKH => p2pkh_script(self).into(),
         }
     }
 }
@@ -37,8 +37,8 @@ impl Into<Script> for &'_ Address<'_> {
 impl Into<Script> for Address<'_> {
     fn into(self) -> Script {
         match self.addr_type() {
-            AddressType::P2SH => Script::new(p2sh_script(&self).ops().into_owned().into()),
-            AddressType::P2PKH => Script::new(p2pkh_script(&self).ops().into_owned().into()),
+            AddressType::P2SH => p2sh_script(&self).into(),
+            AddressType::P2PKH => p2pkh_script(&self).into(),
         }
     }
 }

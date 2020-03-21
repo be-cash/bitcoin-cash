@@ -194,7 +194,7 @@ impl<'b> TxBuilder<'b> {
         let mut inputs = Vec::with_capacity(self.inputs.len());
         for input in &self.inputs {
             let n_sigs = input.sig_hash_flags.len();
-            let lock_script = Script::new(input.lock_script.ops().into());
+            let lock_script = Script::new(input.lock_script.ops().to_vec());
             let preimages = vec![TxPreimage::empty_with_script(&lock_script); n_sigs];
             inputs.push(TxInput {
                 prev_out: input.input.prev_out.clone(),
@@ -327,7 +327,7 @@ impl ToPreimages for TxBuilderPreimages<'_> {
         self.builder.inputs[input_idx].input.value
     }
     fn input_lock_script_at(&self, input_idx: usize) -> Script {
-        Script::new(self.builder.inputs[input_idx].lock_script.ops().into())
+        Script::new(self.builder.inputs[input_idx].lock_script.ops().to_vec())
     }
     fn num_outputs(&self) -> usize {
         self.outputs.len()
@@ -380,7 +380,7 @@ impl<'b> UnsignedTx<'b> {
                 preimage,
                 &self.builder,
                 Some(Box::new(sigs)),
-                &Script::new(builder_input.lock_script.ops().into()),
+                &Script::new(builder_input.lock_script.ops().to_vec()),
                 &self.outputs,
             ),
             sequence: builder_input.input.sequence,

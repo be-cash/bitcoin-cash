@@ -168,7 +168,7 @@ impl JsonTx {
                         .script
                         .iter()
                         .map(|op| op.to_tagged_op(data))
-                        .collect::<Result<_, _>>()?,
+                        .collect::<Result<Vec<_>, _>>()?,
                 ),
                 lock_script: input
                     .lock_script
@@ -177,7 +177,7 @@ impl JsonTx {
                         lock_script
                             .iter()
                             .map(|op| op.to_tagged_op(data))
-                            .collect::<Result<_, _>>()
+                            .collect::<Result<Vec<_>, _>>()
                             .map(Script::new)
                     })
                     .map_or(Ok(None), |name| name.map(Some))?,
@@ -192,7 +192,7 @@ impl JsonTx {
                         .script
                         .iter()
                         .map(|op| op.to_tagged_op(data))
-                        .collect::<Result<_, _>>()?,
+                        .collect::<Result<Vec<_>, _>>()?,
                 ),
                 value: output.value,
             };
