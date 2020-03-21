@@ -57,7 +57,7 @@ pub fn slp_send_output(
     ops.extend(slp_amount_ops(output_amounts.iter()));
     TxOutput {
         value: 0,
-        script: Script::new(ops.into_iter().map(TaggedOp::from_op).collect()),
+        script: Script::new(ops.into_iter().map(TaggedOp::from_op).collect::<Vec<_>>()),
     }
 }
 
