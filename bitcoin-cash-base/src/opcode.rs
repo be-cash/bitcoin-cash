@@ -2635,10 +2635,6 @@ impl Opcode {
         }
     }
 
-    pub fn is_push_op(self) {
-        
-    }
-
     pub fn retains_input(self) -> bool {
         use Opcode::*;
         match self {
