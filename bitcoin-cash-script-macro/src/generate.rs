@@ -56,7 +56,7 @@ impl GenerateScript {
             );
             enum_variant_fields.insert(variant.name.clone(), Vec::new());
         }
-        if script.script_variants.len() == 0 {
+        if script.script_variants.is_empty() {
             self.variant_states.states.insert(
                 script.input_struct.clone(),
                 State {
@@ -110,10 +110,9 @@ impl GenerateScript {
                         .variant_states
                         .states
                         .get_mut(&variant)
-                        .ok_or(Error::new(
-                            span,
-                            format!("Undefined variant `{}`.", variant),
-                        ))?;
+                        .ok_or_else(|| {
+                            Error::new(span, format!("Undefined variant `{}`.", variant))
+                        })?;
                     stack.stack.push(stack_item.clone());
                     let fields = enum_variant_fields.get_mut(&variant).unwrap();
                     fields.push((ident.clone(), ty.clone(), input.token_stream.clone()));
@@ -146,126 +145,126 @@ impl GenerateScript {
             }));
         let script_ident = &self.script_ident;
 
-        let (input_struct_enum, impl_ops, impl_types, impl_names) = if script.script_variants.len()
-            == 0
-        {
-            (
-                quote! {
-                    #vis struct #input_struct #generics {
-                        #(#struct_fields),*
-                    }
-                },
-                quote! {
-                    vec![
-                        #(#impl_pushops),*
-                    ]
-                },
-                quote! {
-                    vec![
-                        #(#impl_types),*
-                    ]
-                },
-                quote! {
-                    &[
-                        #(#impl_names),*
-                    ]
-                },
-            )
-        } else {
-            let mut enum_variants = Vec::with_capacity(script.script_variants.len());
-            let mut match_ops = Vec::with_capacity(script.script_variants.len());
-            let mut match_types = Vec::with_capacity(script.script_variants.len());
-            let mut match_names = Vec::with_capacity(script.script_variants.len());
-            for (variant_name, variant_fields) in enum_variant_fields {
-                let variant_name_str = variant_name.to_string();
-                let variant_fields_quote = variant_fields.iter().map(|(ident, ty, _)| {
+        let (input_struct_enum, impl_ops, impl_types, impl_names) =
+            if script.script_variants.is_empty() {
+                (
                     quote! {
-                        #ident: #ty
-                    }
-                });
-                enum_variants.push(quote! {
-                    #variant_name {
-                        #(#variant_fields_quote),*
-                    }
-                });
-
-                let unpack_variant = variant_fields.iter().map(|(ident, _, _)| ident);
-                let variant_pushops = variant_fields.iter().map(|(ident, _, token_stream)| {
-                    let ident_str = ident.to_string();
-                    let source = token_stream.to_string();
-                    let src_code = self.max_line_widths.iter().map(|max_line_width| {
+                        #vis struct #input_struct #generics {
+                            #(#struct_fields),*
+                        }
+                    },
+                    quote! {
+                        vec![
+                            #(#impl_pushops),*
+                        ]
+                    },
+                    quote! {
+                        vec![
+                            #(#impl_types),*
+                        ]
+                    },
+                    quote! {
+                        &[
+                            #(#impl_names),*
+                        ]
+                    },
+                )
+            } else {
+                let mut enum_variants = Vec::with_capacity(script.script_variants.len());
+                let mut match_ops = Vec::with_capacity(script.script_variants.len());
+                let mut match_types = Vec::with_capacity(script.script_variants.len());
+                let mut match_names = Vec::with_capacity(script.script_variants.len());
+                for (variant_name, variant_fields) in enum_variant_fields {
+                    let variant_name_str = variant_name.to_string();
+                    let variant_fields_quote = variant_fields.iter().map(|(ident, ty, _)| {
                         quote! {
-                            (#max_line_width, #source.into())
+                            #ident: #ty
                         }
                     });
-                    quote! {
-                        #crate_ident::TaggedOp {
-                            op: #ident.to_pushop(),
-                            src_file: file!().into(),
-                            src_line: line!(),
-                            src_column: column!(),
-                            src_code: vec![#(#src_code),*],
-                            pushed_names: Some(vec![Some(#ident_str.into())]),
-                            alt_pushed_names: Some(vec![]),
+                    enum_variants.push(quote! {
+                        #variant_name {
+                            #(#variant_fields_quote),*
                         }
-                    }
-                });
-                match_ops.push(quote! {
-                    #input_struct::#variant_name { #(#unpack_variant),* } => vec![
-                        #(#variant_pushops),*
-                    ]
-                });
+                    });
 
-                let variant_types = variant_fields.iter().map(|(_, ty, _)| {
+                    let unpack_variant = variant_fields.iter().map(|(ident, _, _)| ident);
+                    let variant_pushops = variant_fields.iter().map(|(ident, _, token_stream)| {
+                        let ident_str = ident.to_string();
+                        let source = token_stream.to_string();
+                        let src_code = self.max_line_widths.iter().map(|max_line_width| {
+                            quote! {
+                                (#max_line_width, #source.into())
+                            }
+                        });
+                        quote! {
+                            #crate_ident::TaggedOp {
+                                op: #ident.to_pushop(),
+                                src_file: file!().into(),
+                                src_line: line!(),
+                                src_column: column!(),
+                                src_code: vec![#(#src_code),*],
+                                pushed_names: Some(vec![Some(#ident_str.into())]),
+                                alt_pushed_names: Some(vec![]),
+                            }
+                        }
+                    });
+                    match_ops.push(quote! {
+                        #input_struct::#variant_name { #(#unpack_variant),* } => vec![
+                            #(#variant_pushops),*
+                        ]
+                    });
+
+                    let variant_types = variant_fields.iter().map(|(_, ty, _)| {
+                        quote! {
+                            <#ty as Default>::default().to_data_type()
+                        }
+                    });
+                    match_types.push(quote! {
+                        Some(#variant_name_str) => vec![
+                            #(#variant_types),*
+                        ]
+                    });
+                    let field_names_str =
+                        variant_fields.iter().map(|(ident, _, _)| ident.to_string());
+                    match_names.push(quote! {
+                        Some(#variant_name_str) => &[
+                            #(#field_names_str),*
+                        ]
+                    });
+                }
+                let match_none = quote! {
+                    None => panic!("Must provide enum variant name")
+                };
+                let match_unknown = quote! {
+                    Some(variant) => panic!(format!("Unknown variant: {}", variant))
+                };
+                match_types.push(match_unknown.clone());
+                match_types.push(match_none.clone());
+                match_names.push(match_unknown);
+                match_names.push(match_none);
+                (
                     quote! {
-                        <#ty as Default>::default().to_data_type()
-                    }
-                });
-                match_types.push(quote! {
-                    Some(#variant_name_str) => vec![
-                        #(#variant_types),*
-                    ]
-                });
-                let field_names_str = variant_fields.iter().map(|(ident, _, _)| ident.to_string());
-                match_names.push(quote! {
-                    Some(#variant_name_str) => &[
-                        #(#field_names_str),*
-                    ]
-                });
-            }
-            let match_none = quote! {
-                None => panic!("Must provide enum variant name")
+                        #vis enum #input_struct #generics {
+                            #(#enum_variants),*
+                        }
+                    },
+                    quote! {
+                        match self {
+                            #(#match_ops),*
+                        }
+                    },
+                    quote! {
+                        match variant_name {
+                            #(#match_types),*
+                        }
+                    },
+                    quote! {
+                        match variant_name {
+                            #(#match_names),*
+                        }
+                    },
+                )
             };
-            let match_unknown = quote! {
-                Some(variant) => panic!(format!("Unknown variant: {}", variant))
-            };
-            match_types.push(match_unknown.clone());
-            match_types.push(match_none.clone());
-            match_names.push(match_unknown);
-            match_names.push(match_none);
-            (
-                quote! {
-                    #vis enum #input_struct #generics {
-                        #(#enum_variants),*
-                    }
-                },
-                quote! {
-                    match self {
-                        #(#match_ops),*
-                    }
-                },
-                quote! {
-                    match variant_name {
-                        #(#match_types),*
-                    }
-                },
-                quote! {
-                    match variant_name {
-                        #(#match_names),*
-                    }
-                },
-            )
-        };
 
         Ok(quote! {
             #input_struct_enum
@@ -307,11 +306,11 @@ impl GenerateScript {
         match stmt {
             ir::Stmt::ForLoop(for_loop) => Err(Error::new(
                 for_loop.span,
-                format!("For loops not implemented yet"),
+                "For loops not implemented yet".to_string(),
             )),
             ir::Stmt::RustIf(if_stmt) => Err(Error::new(
                 if_stmt.span,
-                format!("`if` not implemented yet"),
+                "`if` not implemented yet".to_string(),
             )),
             ir::Stmt::Push(push) => self.run_push(push, crate_ident),
             ir::Stmt::Opcode(opcode) => self.run_opcode(opcode, crate_ident),
@@ -783,7 +782,7 @@ impl GenerateScript {
         self.variant_states
             .predicate_atoms
             .push(ir::VariantPredicateAtom {
-                var_name: predicate_name.clone(),
+                var_name: predicate_name,
                 is_positive: false,
             });
         let mut else_tokens = Vec::new();

@@ -1,6 +1,6 @@
 use crate::{
-    encode_bitcoin_code, encoding_utils, error::Result, ByteArray, Script, Sha256d, SigHashFlags,
-    ToPreimages, TxPreimage, Hashed
+    encode_bitcoin_code, encoding_utils, error::Result, ByteArray, Hashed, Script, Sha256d,
+    SigHashFlags, ToPreimages, TxPreimage,
 };
 use serde_derive::{Deserialize, Serialize};
 
@@ -62,7 +62,14 @@ impl TxInput {
         let mut script_len_ser = Vec::new();
         encoding_utils::write_var_int(&mut script_len_ser, script.len() as u64)?;
         let script_len = ByteArray::new("script_len", script_len_ser);
-        Ok(self.prev_out.tx_hash.clone().concat(vout).concat(script_len).concat(script).concat(sequence))
+        Ok(self
+            .prev_out
+            .tx_hash
+            .clone()
+            .concat(vout)
+            .concat(script_len)
+            .concat(script)
+            .concat(sequence))
     }
 }
 
@@ -101,7 +108,7 @@ impl UnhashedTx {
         for input in self.inputs.iter() {
             byte_array = byte_array.concat(input.serialize()?);
         }
-        
+
         byte_array = byte_array.concat(outputs_len);
         for output in self.outputs.iter() {
             byte_array = byte_array.concat(output.serialize()?);
@@ -118,7 +125,7 @@ impl UnhashedTx {
             raw,
             hash,
         }
-    } 
+    }
 }
 
 impl Tx {

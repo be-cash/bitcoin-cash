@@ -118,7 +118,7 @@ fn serialize_push_prefix(
         }
         _ => return ScriptSerializeError::PushTooLarge.into_err(),
     }
-    return Ok(PushPrefixTail::PushedData);
+    Ok(PushPrefixTail::PushedData)
 }
 
 fn serialize_push_bytes(bytes: ByteArray, is_minimal_push: bool) -> Result<ByteArray> {

@@ -1,6 +1,6 @@
 use crate::{
-    Address, AddressType, ByteArray, Opcode::*, Pubkey, Script, SigHashFlags, Signatory,
-    TxBuilder, TxOutput, TxPreimage, MAX_SIGNATURE_SIZE,
+    Address, AddressType, ByteArray, Opcode::*, Pubkey, Script, SigHashFlags, Signatory, TxBuilder,
+    TxOutput, TxPreimage, MAX_SIGNATURE_SIZE,
 };
 
 #[derive(Clone)]

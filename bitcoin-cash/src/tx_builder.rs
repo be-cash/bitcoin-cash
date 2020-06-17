@@ -403,7 +403,7 @@ impl<'b> UnsignedTx<'b> {
             .inputs
             .into_iter()
             .enumerate()
-            .map(|(idx, input)| input.expect(&format!("Input {} not signed", idx)))
+            .map(|(idx, input)| input.unwrap_or_else(|| panic!("Input {} not signed", idx)))
             .collect();
         UnhashedTx {
             version: self.builder.version,

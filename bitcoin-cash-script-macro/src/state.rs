@@ -104,22 +104,23 @@ impl VariantStates {
                                 format!(" ({})", next_item.name)
                             },
                         ));
-                    } else if !next_item.has_generated_name && !prev_item.has_generated_name {
-                        if next_item.name != prev_item.name {
-                            return Err(format!(
-                                "Branch results in inconsistent stack item names. \
-                                     Item in variant `{}` is named `{}` while \
-                                     in variant `{}` is named `{}` in .",
-                                prev_variant, prev_item.name, next_variant, next_item.name,
-                            ));
-                        }
+                    } else if !next_item.has_generated_name
+                        && !prev_item.has_generated_name
+                        && next_item.name != prev_item.name
+                    {
+                        return Err(format!(
+                            "Branch results in inconsistent stack item names. \
+                                    Item in variant `{}` is named `{}` while \
+                                    in variant `{}` is named `{}` in .",
+                            prev_variant, prev_item.name, next_variant, next_item.name,
+                        ));
                     }
                 }
                 prev_item = Some(next_item);
                 prev_variant = Some(next_variant);
             }
         }
-        prev_item.ok_or("No variant for this op".to_string())
+        prev_item.ok_or_else(|| "No variant for this op".to_string())
     }
 
     pub fn find_item(&mut self, ident: &syn::Ident) -> Result<(usize, &StackItem), String> {
@@ -177,7 +178,7 @@ impl VariantStates {
                 prev_stack = Some(stack);
             }
         }
-        prev_depth_item.ok_or("No variant for this op".to_string())
+        prev_depth_item.ok_or_else(|| "No variant for this op".to_string())
     }
 
     fn pop_flagged(&mut self, is_alt_stack: bool) -> Result<StackItem, String> {
@@ -220,15 +221,16 @@ impl VariantStates {
                                 format!(" ({})", next_item.name)
                             },
                         ));
-                    } else if !next_item.has_generated_name && !prev_item.has_generated_name {
-                        if next_item.name != prev_item.name {
-                            return Err(format!(
-                                "Branch results in inconsistent stack item names. \
-                                     Top item in variant `{}` is named `{}` while \
-                                     in variant `{}` is named `{}` in .",
-                                prev_variant, prev_item.name, next_variant, next_item.name,
-                            ));
-                        }
+                    } else if !next_item.has_generated_name
+                        && !prev_item.has_generated_name
+                        && next_item.name != prev_item.name
+                    {
+                        return Err(format!(
+                            "Branch results in inconsistent stack item names. \
+                                    Top item in variant `{}` is named `{}` while \
+                                    in variant `{}` is named `{}` in .",
+                            prev_variant, prev_item.name, next_variant, next_item.name,
+                        ));
                     }
                 }
                 prev_item = Some(next_item);

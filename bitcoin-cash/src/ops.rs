@@ -23,7 +23,7 @@ impl<I: InputScript> TaggedScript<I> {
         }
     }
 
-    pub fn script_ops<'a>(&'a self) -> impl Iterator<Item = &'a Op> {
+    pub fn script_ops(&self) -> impl Iterator<Item = &Op> {
         self.tagged_ops.iter().map(|op| &op.op)
     }
 }

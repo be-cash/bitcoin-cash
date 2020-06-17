@@ -402,7 +402,7 @@ impl JsonData {
     fn get_string(&self, string_idx: usize) -> Result<&Cow<'static, str>, error::Error> {
         self.strings
             .get(string_idx)
-            .ok_or(error::ErrorKind::InvalidStringIdx(string_idx).into())
+            .ok_or_else(|| error::ErrorKind::InvalidStringIdx(string_idx).into())
     }
 }
 

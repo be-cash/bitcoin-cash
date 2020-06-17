@@ -130,7 +130,7 @@ impl std::fmt::Debug for OpcodeInput {
 
 impl VariantPredicate {
     pub fn holds(&self, instantiations: &[VariantPredicateAtom]) -> bool {
-        if self.0.len() == 0 {
+        if self.0.is_empty() {
             return true;
         }
         for conjunction in self.0.iter() {
