@@ -1,4 +1,5 @@
 use crate::address::CashAddrError;
+use error_chain::error_chain;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BitcoinCodeError {
@@ -29,51 +30,43 @@ impl ScriptSerializeError {
     }
 }
 
-#[derive(Debug, ErrorChain)]
-pub enum ErrorKind {
-    Msg(String),
+error_chain! {
+    links {
+        Json(
+            crate::serialize_json::error::Error,
+            crate::serialize_json::error::ErrorKind
+        );
+    }
 
-    #[error_chain(foreign)]
-    FromHex(hex::FromHexError),
+    foreign_links {
+        FromHex(hex::FromHexError);
+        Io(std::io::Error);
+        Utf8(std::str::Utf8Error);
+        SerdeJson(serde_json::Error);
+    }
 
-    #[error_chain(foreign)]
-    Io(std::io::Error),
+    errors {
+        InvalidSize(expected: usize, actual: usize) {
+            description("invalid size")
+            display("invalid size, expected {}, got {}", expected, actual)
+        }
 
-    #[error_chain(foreign)]
-    Utf8(std::str::Utf8Error),
+        InvalidCashAddr(err: CashAddrError) {}
 
-    #[error_chain(custom)]
-    #[error_chain(description = |_| "invalid size")]
-    #[error_chain(display = |t: &(_, _)| write!(f, "invalid size, expected {}, got {}", t.0, t.1))]
-    InvalidSize((usize, usize)),
+        BitcoinCodeDeserialize(err: BitcoinCodeError) {}
 
-    #[error_chain(custom)]
-    InvalidCashAddr(CashAddrError),
+        ScriptSerialize(err: ScriptSerializeError) {}
 
-    #[error_chain(custom)]
-    BitcoinCodeDeserialize(BitcoinCodeError),
+        InsufficientInputAmount(amount: u64) {}
 
-    #[error_chain(custom)]
-    ScriptSerialize(ScriptSerializeError),
+        InvalidSignatureFormat {}
 
-    #[error_chain(link = "crate::serialize_json::error::Error")]
-    Json(crate::serialize_json::error::ErrorKind),
-
-    #[error_chain(custom)]
-    InsufficientInputAmount(u64),
-
-    #[error_chain(custom)]
-    InvalidSignatureFormat,
-
-    #[error_chain(custom)]
-    InvalidPubkey,
-
-    #[error_chain(foreign)]
-    SerdeJson(serde_json::Error),
+        InvalidPubkey {}
+    }
 }
 
 impl From<bitcoin_cash_base::FromSliceError> for Error {
     fn from(error: bitcoin_cash_base::FromSliceError) -> Self {
-        ErrorKind::InvalidSize((error.expected, error.actual)).into()
+        ErrorKind::InvalidSize(error.expected, error.actual).into()
     }
 }

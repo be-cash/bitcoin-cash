@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate derive_error_chain;
-
 mod address;
 mod deserializer;
 mod ecc;

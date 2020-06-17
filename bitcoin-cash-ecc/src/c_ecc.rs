@@ -20,16 +20,16 @@ impl ECC for CECC {
     fn sign(&self, secret_key: &[u8], msg_array: impl Into<ByteArray>) -> Result<ByteArray> {
         let msg_array = msg_array.into();
         let sk = SecretKey::from_slice(secret_key)
-            .chain_err(|| ErrorKind::InvalidSize((32, secret_key.len())))?;
+            .chain_err(|| ErrorKind::InvalidSize(32, secret_key.len()))?;
         let msg = Message::from_slice(&msg_array)
-            .chain_err(|| ErrorKind::InvalidSize((32, msg_array.len())))?;
+            .chain_err(|| ErrorKind::InvalidSize(32, msg_array.len()))?;
         let sig = self.curve.sign(&msg, &sk).serialize_der().to_vec();
         Ok(msg_array.apply_function(sig, Function::EcdsaSign))
     }
 
     fn verify(&self, pubkey: &[u8], msg_array: &[u8], sig_ser: &[u8]) -> Result<bool> {
         let msg = Message::from_slice(msg_array)
-            .chain_err(|| ErrorKind::InvalidSize((32, msg_array.len())))?;
+            .chain_err(|| ErrorKind::InvalidSize(32, msg_array.len()))?;
         let sig = Signature::from_der(sig_ser).chain_err(|| ErrorKind::InvalidSignatureFormat)?;
         let pubkey = PublicKey::from_slice(pubkey).chain_err(|| ErrorKind::InvalidPubkey)?;
         match self.curve.verify(&msg, &sig, &pubkey) {
@@ -44,7 +44,7 @@ impl ECC for CECC {
 
     fn derive_pubkey(&self, secret_key: &[u8]) -> Result<Pubkey> {
         let sk = SecretKey::from_slice(secret_key)
-            .chain_err(|| ErrorKind::InvalidSize((32, secret_key.len())))?;
+            .chain_err(|| ErrorKind::InvalidSize(32, secret_key.len()))?;
         Ok(Pubkey::new(
             PublicKey::from_secret_key(&self.curve, &sk).serialize(),
         ))

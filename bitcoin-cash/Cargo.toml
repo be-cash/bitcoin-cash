@@ -15,8 +15,7 @@ bitcoin-cash-base = {path="../bitcoin-cash-base", version="0.1.2"}
 
 hex = "0.4"
 hex-literal = "0.2"
-error-chain = "0.11"
-derive-error-chain = "0.11"
+error-chain = "0.12"
 sha-1 = "0.8"
 ripemd160 = "0.8"
 sha2 = "0.8"

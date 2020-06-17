@@ -83,16 +83,16 @@ struct JsonTx {
 }
 
 pub mod error {
-    #[derive(Debug, ErrorChain)]
-    pub enum ErrorKind {
-        #[error_chain(custom)]
-        InvalidDataIdx(usize),
-        #[error_chain(custom)]
-        InvalidStringIdx(usize),
-        #[error_chain(foreign)]
-        DecodeError(base64::DecodeError),
-        #[error_chain(custom)]
-        InvalidHash,
+    use error_chain::error_chain;
+    error_chain! {
+        foreign_links {
+            DecodeError(base64::DecodeError);
+        }
+        errors {
+            InvalidDataIdx(idx: usize) {}
+            InvalidStringIdx(idx: usize) {}
+            InvalidHash {}
+        }
     }
 }
 

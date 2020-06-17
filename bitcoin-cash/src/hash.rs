@@ -378,7 +378,7 @@ mod tests {
         assert_eq!(Sha1::digest(b"").as_slice(), EMPTY_SHA1);
         assert_eq!(Sha1::digest(b""), Sha1::from_slice(&EMPTY_SHA1)?);
         assert_eq!(
-            ErrorKind::InvalidSize((20, 2)).to_string(),
+            ErrorKind::InvalidSize(20, 2).to_string(),
             Sha1::from_slice(&[0, 0]).unwrap_err().kind().to_string(),
         );
         Ok(())
@@ -409,7 +409,7 @@ mod tests {
             Ripemd160::from_slice(&EMPTY_RIPEMD)?
         );
         assert_eq!(
-            ErrorKind::InvalidSize((20, 2)).to_string(),
+            ErrorKind::InvalidSize(20, 2).to_string(),
             Ripemd160::from_slice(&[0, 0])
                 .unwrap_err()
                 .kind()
@@ -447,7 +447,7 @@ mod tests {
         assert_eq!(Sha256::digest(b"").as_slice(), EMPTY_SHA256);
         assert_eq!(Sha256::digest(b""), Sha256::from_slice(&EMPTY_SHA256)?);
         assert_eq!(
-            ErrorKind::InvalidSize((32, 2)).to_string(),
+            ErrorKind::InvalidSize(32, 2).to_string(),
             Sha256::from_slice(&[0, 0]).unwrap_err().kind().to_string(),
         );
         Ok(())
@@ -478,7 +478,7 @@ mod tests {
         assert_eq!(Sha256d::digest(b"").as_slice(), EMPTY_SHA256D);
         assert_eq!(Sha256d::digest(b""), Sha256d::from_slice(&EMPTY_SHA256D)?);
         assert_eq!(
-            ErrorKind::InvalidSize((32, 2)).to_string(),
+            ErrorKind::InvalidSize(32, 2).to_string(),
             Sha256d::from_slice(&[0, 0]).unwrap_err().kind().to_string(),
         );
         Ok(())
@@ -511,7 +511,7 @@ mod tests {
         assert_eq!(Hash160::digest(b"").as_slice(), EMPTY_HASH160);
         assert_eq!(Hash160::digest(b""), Hash160::from_slice(&EMPTY_HASH160)?);
         assert_eq!(
-            ErrorKind::InvalidSize((20, 2)).to_string(),
+            ErrorKind::InvalidSize(20, 2).to_string(),
             Hash160::from_slice(&[0, 0]).unwrap_err().kind().to_string(),
         );
         Ok(())
