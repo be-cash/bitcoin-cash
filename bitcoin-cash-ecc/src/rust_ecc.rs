@@ -16,9 +16,9 @@ impl ECC for RustECC {
     fn sign(&self, secret_key: &[u8], msg_array: impl Into<ByteArray>) -> Result<ByteArray> {
         let msg_array = msg_array.into();
         let sk = SecretKey::parse_slice(secret_key)
-            .chain_err(|| ErrorKind::InvalidSize((32, secret_key.len())))?;
+            .chain_err(|| ErrorKind::InvalidSize(32, secret_key.len()))?;
         let msg = Message::parse_slice(&msg_array)
-            .chain_err(|| ErrorKind::InvalidSize((32, msg_array.len())))?;
+            .chain_err(|| ErrorKind::InvalidSize(32, msg_array.len()))?;
         let mut sig = secp256k1::sign(&msg, &sk).0;
         sig.normalize_s();
         let sig = sig.serialize_der().as_ref().to_vec();
@@ -27,7 +27,7 @@ impl ECC for RustECC {
 
     fn verify(&self, pubkey: &[u8], msg_array: &[u8], sig_ser: &[u8]) -> Result<bool> {
         let msg = Message::parse_slice(msg_array)
-            .chain_err(|| ErrorKind::InvalidSize((32, msg_array.len())))?;
+            .chain_err(|| ErrorKind::InvalidSize(32, msg_array.len()))?;
         let sig = Signature::parse_der(sig_ser).chain_err(|| ErrorKind::InvalidSignatureFormat)?;
         let pubkey = PublicKey::parse_slice(pubkey, Some(PublicKeyFormat::Compressed))
             .chain_err(|| ErrorKind::InvalidPubkey)?;
@@ -36,7 +36,7 @@ impl ECC for RustECC {
 
     fn derive_pubkey(&self, secret_key: &[u8]) -> Result<Pubkey> {
         let sk = SecretKey::parse_slice(secret_key)
-            .chain_err(|| ErrorKind::InvalidSize((32, secret_key.len())))?;
+            .chain_err(|| ErrorKind::InvalidSize(32, secret_key.len()))?;
         Ok(Pubkey::new(
             PublicKey::from_secret_key(&sk).serialize_compressed(),
         ))
