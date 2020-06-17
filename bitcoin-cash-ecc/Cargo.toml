@@ -1,6 +1,6 @@
 [package]
 name = "bitcoin-cash-ecc"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["tobiasruck <ruck.tobias@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -10,7 +10,7 @@ documentation = "https://github.com/be-cash/bitcoin-cash"
 repository = "https://github.com/be-cash/bitcoin-cash"
 
 [dependencies]
-bitcoin-cash = {path="../bitcoin-cash", version="0.1.2"}
+bitcoin-cash = {path="../bitcoin-cash", version="0.1.3"}
 
 [features]
 default = ["c_ecc"]
