@@ -44,7 +44,7 @@ pub struct FromSliceError {
 }
 
 impl Function {
-    pub fn should_keep_intact(&self) -> bool {
+    pub fn should_keep_intact(self) -> bool {
         use Function::*;
         match self {
             Plain | Num2Bin | EcdsaSign | SchnorrSign | ToDataSig => false,
@@ -212,12 +212,10 @@ impl ByteArray {
                         left_preimage.push(sub_left);
                         right_preimage.push(sub_right);
                         is_left = false;
+                    } else if is_left {
+                        left_preimage.push(part);
                     } else {
-                        if is_left {
-                            left_preimage.push(part);
-                        } else {
-                            right_preimage.push(part);
-                        }
+                        right_preimage.push(part);
                     }
                     len += part_len;
                 }
@@ -233,13 +231,13 @@ impl ByteArray {
             ByteArray {
                 data: data.into(),
                 name: None,
-                function: function,
+                function,
                 preimage: left_preimage.map(Into::into),
             },
             ByteArray {
                 data: other.into(),
                 name: None,
-                function: function,
+                function,
                 preimage: right_preimage.map(Into::into),
             },
         ))

@@ -11,8 +11,8 @@ lazy_static! {
         map.insert("OP_0".to_string(), Opcode::OP_0);
         map.insert("OP_1NEGATE".to_string(), Opcode::OP_1NEGATE);
         for code in 0x51..Opcode::FIRST_UNDEFINED_OP_VALUE as u8 {
-            let opcode: Opcode =
-                num::FromPrimitive::from_u8(code).expect(&format!("Invalid opcode {}", code));
+            let opcode: Opcode = num::FromPrimitive::from_u8(code)
+                .unwrap_or_else(|| panic!("Invalid opcode {}", code));
             map.insert(format!("{:?}", opcode), opcode);
         }
         map
@@ -2393,15 +2393,15 @@ pub mod func {
         BitcoinInteger(0)
     }
 
-    pub fn OP_NOP() -> () {}
-    pub fn OP_NOP1() -> () {}
-    pub fn OP_NOP4() -> () {}
-    pub fn OP_NOP5() -> () {}
-    pub fn OP_NOP6() -> () {}
-    pub fn OP_NOP7() -> () {}
-    pub fn OP_NOP8() -> () {}
-    pub fn OP_NOP9() -> () {}
-    pub fn OP_NOP10() -> () {}
+    pub fn OP_NOP() {}
+    pub fn OP_NOP1() {}
+    pub fn OP_NOP4() {}
+    pub fn OP_NOP5() {}
+    pub fn OP_NOP6() {}
+    pub fn OP_NOP7() {}
+    pub fn OP_NOP8() {}
+    pub fn OP_NOP9() {}
+    pub fn OP_NOP10() {}
 
     pub fn OP_IF<T>(stack_item: T) {}
     pub fn OP_ELSE() {}
@@ -2477,6 +2477,7 @@ pub mod func {
     pub fn OP_TUCK<T, U: Clone>(item1: T, item2: U) -> (U, T, U) {
         (item2.clone(), item1, item2)
     }
+    pub fn OP_RETURN() {}
 
     pub fn OP_CAT(left: BitcoinByteArray, right: BitcoinByteArray) -> BitcoinByteArray {
         BitcoinByteArray(b"MOCK".as_ref().into())
