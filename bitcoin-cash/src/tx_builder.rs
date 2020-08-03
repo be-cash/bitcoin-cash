@@ -18,7 +18,7 @@ struct TxBuilderInput<'b> {
     input: UnsignedTxInput,
     func_script: Box<
         dyn Fn(&[TxPreimage], &TxBuilder, Option<Box<dyn Any>>, &Script, &[TxOutput]) -> Script
-            + 'b,
+            + 'b + Sync + Send,
     >,
     sig_hash_flags: Vec<SigHashFlags>,
     lock_script: Script,
@@ -112,7 +112,7 @@ impl<'b> TxBuilder<'b> {
         }
     }
 
-    pub fn add_input<S: Signatory + 'b>(
+    pub fn add_input<S: Signatory + 'b + Sync + Send>(
         &mut self,
         input: impl Into<UnsignedTxInput>,
         lock_script: TaggedScript<S::Script>,

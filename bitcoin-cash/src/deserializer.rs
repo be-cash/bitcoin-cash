@@ -54,7 +54,7 @@ macro_rules! impl_nums {
             let value = self.input.$reader_method::<LittleEndian>()?;
             visitor.$visitor_method(value)
         }
-    }
+    };
 }
 
 impl<'de, 'a> serde::de::SeqAccess<'de> for Access<'a, 'de> {
