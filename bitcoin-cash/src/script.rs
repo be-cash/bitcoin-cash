@@ -135,7 +135,7 @@ pub fn serialize_op(op: &Op) -> Result<ByteArray> {
     match *op {
         Op::Code(opcode) => Ok([opcode as u8].into()),
         Op::Invalid(opcode) => Ok([opcode as u8].into()),
-        Op::PushBoolean(boolean) => Ok([if boolean { OP_0 as u8 } else { OP_1 as u8 }].into()),
+        Op::PushBoolean(boolean) => Ok([if boolean { OP_1 as u8 } else { OP_0 as u8 }].into()),
         Op::PushInteger(int) => Ok([match int {
             -1 => OP_1NEGATE as u8,
             0 => OP_0 as u8,
