@@ -72,7 +72,7 @@ impl TokenId {
         Ok(TokenId(Sha256d::from_slice_le(token_id)?))
     }
 
-    pub fn as_slice(&self) -> &[u8] {
+    pub fn as_slice_be(&self) -> &[u8] {
         self.0.as_slice()
     }
 
