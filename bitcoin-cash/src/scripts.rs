@@ -4,8 +4,8 @@ use crate::{
 };
 
 #[derive(Clone)]
-pub struct P2PKHBuilder<'b> {
-    pub pubkey: &'b Pubkey,
+pub struct P2PKHSignatory {
+    pub pubkey: Pubkey,
     pub sig_hash_flags: SigHashFlags,
 }
 
@@ -43,7 +43,7 @@ impl Into<Script> for Address<'_> {
     }
 }
 
-impl<'b> Signatory for P2PKHBuilder<'b> {
+impl<'b> Signatory for P2PKHSignatory {
     type Script = P2PKHInputs;
     type Signatures = ByteArray;
     fn sig_hash_flags(&self) -> Vec<SigHashFlags> {
