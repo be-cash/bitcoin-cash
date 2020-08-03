@@ -10,6 +10,15 @@ impl Pubkey {
         Pubkey(pubkey)
     }
 
+    pub fn from_slice_checked(slice: &[u8]) -> Option<Self> {
+        let mut pubkey = [0; 33];
+        if slice.len() != pubkey.len() {
+            return None;
+        }
+        pubkey.copy_from_slice(slice);
+        Some(Pubkey(pubkey))
+    }
+
     pub fn new(pubkey: [u8; 33]) -> Self {
         Pubkey(pubkey)
     }
