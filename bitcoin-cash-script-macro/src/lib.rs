@@ -18,7 +18,7 @@ pub fn script(
     let parsed_script = parse::parse_script(attr, func);
     let script_ident = quote! {__script_vec};
     let mut generate_script = generate::GenerateScript {
-        script_ident: script_ident,
+        script_ident,
         variant_states: state::VariantStates {
             states: Default::default(),
             predicate_atoms: vec![],

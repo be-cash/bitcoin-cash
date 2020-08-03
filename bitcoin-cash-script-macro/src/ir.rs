@@ -33,6 +33,7 @@ pub struct ScriptInput {
     pub ident: syn::Ident,
     pub ty: syn::Type,
     pub variants: Option<Vec<syn::Ident>>,
+    pub attrs: Vec<syn::Attribute>,
 }
 
 #[derive(Clone)]

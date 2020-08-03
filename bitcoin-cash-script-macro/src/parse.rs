@@ -150,20 +150,17 @@ fn parse_predicate(predicate_lit: &syn::Lit) -> Result<ir::VariantPredicate, Str
 }
 
 fn parse_script_input(sig_span: Span, input: &syn::PatType) -> Result<ir::ScriptInput, syn::Error> {
-    if input.attrs.len() > 1 {
-        return Err(syn::Error::new(sig_span, "Too many attributes"));
-    }
     let mut variants = None;
-    if input.attrs.len() == 1 {
-        let attr = &input.attrs[0];
+    let mut attrs = Vec::new();
+    for attr in &input.attrs {
         let err = |s| syn::Error::new(sig_span, s);
-        if &single_path(&attr.path)
-            .map_err(|_| err("Attribute must be `variant`"))?
-            .to_string()
-            != "variant"
-        {
-            return Err(err("Attribute must be `variant`"));
-        }
+        match single_path(&attr.path) {
+            Ok(ident) if &ident.to_string() == "variant" => ident,
+            _ => {
+                attrs.push(attr.clone());
+                continue;
+            }
+        };
         match attr.parse_meta()? {
             syn::Meta::List(meta_list) => {
                 variants = Some(
@@ -194,6 +191,7 @@ fn parse_script_input(sig_span: Span, input: &syn::PatType) -> Result<ir::Script
             ident: pat_ident.ident.clone(),
             ty: (*input.ty).clone(),
             variants,
+            attrs,
         })
     } else {
         Err(syn::Error::new(

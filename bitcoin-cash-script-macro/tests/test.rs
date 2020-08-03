@@ -595,3 +595,22 @@ fn test_placeholder() {
         OP_DROP(b);
     }
 }
+
+#[test]
+fn test_doctest() {
+    #[bitcoin_cash::script(Inputs)]
+    fn script(
+        _: (),
+        /// Doctest a
+        a: i32,
+        /// Doctest b
+        b: i32,
+        /// Doctest c
+        c: i32
+    ) {
+        let (__, __, beer) = OP_ROT(a, __, __);
+        OP_DROP(beer);
+        OP_DROP(c);
+        OP_DROP(b);
+    }
+}
