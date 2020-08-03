@@ -11,7 +11,7 @@ repository = "https://github.com/be-cash/bitcoin-cash"
 
 
 [dependencies]
-num = "0.2"
+num = "0.3"
 num-derive = "0.3"
 num-traits = "0.2"
 lazy_static = "1.4"
@@ -21,6 +21,6 @@ serde = "1.0"
 serde_derive = "1.0"
 
 [dev-dependencies]
-sha2 = "0.8"
+sha2 = "0.9"
 bitcoin-cash = {path="../bitcoin-cash"}
-hex-literal = "0.2"
+hex-literal = "0.3"
