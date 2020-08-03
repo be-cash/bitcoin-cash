@@ -26,8 +26,11 @@ pub enum Function {
 #[derive(Clone, Debug)]
 pub struct ByteArray {
     data: Arc<[u8]>,
+    #[cfg(not(feature = "simple-bytearray"))]
     name: Option<Arc<Cow<'static, str>>>,
+    #[cfg(not(feature = "simple-bytearray"))]
     function: Function,
+    #[cfg(not(feature = "simple-bytearray"))]
     preimage: Option<Arc<[ByteArray]>>,
 }
 
@@ -58,6 +61,7 @@ impl ByteArray {
         true
     }
 
+    #[cfg(not(feature = "simple-bytearray"))]
     pub fn new(name: impl Into<Cow<'static, str>>, data: impl Into<Arc<[u8]>>) -> Self {
         ByteArray {
             data: data.into(),
@@ -67,6 +71,12 @@ impl ByteArray {
         }
     }
 
+    #[cfg(feature = "simple-bytearray")]
+    pub fn new(_name: impl Into<Cow<'static, str>>, data: impl Into<Arc<[u8]>>) -> Self {
+        ByteArray { data: data.into() }
+    }
+
+    #[cfg(not(feature = "simple-bytearray"))]
     pub fn new_unnamed(data: impl Into<Arc<[u8]>>) -> Self {
         ByteArray {
             data: data.into(),
@@ -76,6 +86,12 @@ impl ByteArray {
         }
     }
 
+    #[cfg(feature = "simple-bytearray")]
+    pub fn new_unnamed(data: impl Into<Arc<[u8]>>) -> Self {
+        ByteArray { data: data.into() }
+    }
+
+    #[cfg(not(feature = "simple-bytearray"))]
     pub fn from_preimage(
         data: Arc<[u8]>,
         name: Option<Arc<Cow<'static, str>>>,
@@ -90,6 +106,17 @@ impl ByteArray {
         }
     }
 
+    #[cfg(feature = "simple-bytearray")]
+    pub fn from_preimage(
+        data: Arc<[u8]>,
+        _name: Option<Arc<Cow<'static, str>>>,
+        _function: Function,
+        _preimage: Option<Arc<[ByteArray]>>,
+    ) -> Self {
+        ByteArray { data }
+    }
+
+    #[cfg(not(feature = "simple-bytearray"))]
     pub fn from_slice(name: impl Into<Cow<'static, str>>, slice: &[u8]) -> Self {
         ByteArray {
             data: slice.into(),
@@ -99,6 +126,12 @@ impl ByteArray {
         }
     }
 
+    #[cfg(feature = "simple-bytearray")]
+    pub fn from_slice(_name: impl Into<Cow<'static, str>>, slice: &[u8]) -> Self {
+        ByteArray { data: slice.into() }
+    }
+
+    #[cfg(not(feature = "simple-bytearray"))]
     pub fn from_slice_unnamed(slice: &[u8]) -> Self {
         ByteArray {
             data: slice.into(),
@@ -108,30 +141,66 @@ impl ByteArray {
         }
     }
 
+    #[cfg(feature = "simple-bytearray")]
+    pub fn from_slice_unnamed(slice: &[u8]) -> Self {
+        ByteArray { data: slice.into() }
+    }
+
+    #[cfg(not(feature = "simple-bytearray"))]
     pub fn function(&self) -> Function {
         self.function
     }
 
+    #[cfg(feature = "simple-bytearray")]
+    pub fn function(&self) -> Function {
+        Function::Plain
+    }
+
+    #[cfg(not(feature = "simple-bytearray"))]
     pub fn preimage(&self) -> Option<&[ByteArray]> {
         self.preimage.as_ref().map(|preimage| preimage.as_ref())
     }
 
+    #[cfg(feature = "simple-bytearray")]
+    pub fn preimage(&self) -> Option<&[ByteArray]> {
+        None
+    }
+
+    #[cfg(not(feature = "simple-bytearray"))]
     pub fn preimage_arc(&self) -> Option<&Arc<[ByteArray]>> {
         self.preimage.as_ref()
     }
 
+    #[cfg(feature = "simple-bytearray")]
+    pub fn preimage_arc(&self) -> Option<&Arc<[ByteArray]>> {
+        None
+    }
+
+    #[cfg(not(feature = "simple-bytearray"))]
     pub fn name(&self) -> Option<&str> {
         self.name.as_ref().map(|name| (*(*name).as_ref()).as_ref())
     }
 
+    #[cfg(feature = "simple-bytearray")]
+    pub fn name(&self) -> Option<&str> {
+        None
+    }
+
+    #[cfg(not(feature = "simple-bytearray"))]
     pub fn name_arc(&self) -> Option<&Arc<Cow<'static, str>>> {
         self.name.as_ref()
+    }
+
+    #[cfg(feature = "simple-bytearray")]
+    pub fn name_arc(&self) -> Option<&Arc<Cow<'static, str>>> {
+        None
     }
 
     pub fn data(&self) -> &Arc<[u8]> {
         &self.data
     }
 
+    #[cfg(not(feature = "simple-bytearray"))]
     pub fn concat_named_option(
         self,
         other: impl Into<ByteArray>,
@@ -167,6 +236,21 @@ impl ByteArray {
         }
     }
 
+    #[cfg(feature = "simple-bytearray")]
+    pub fn concat_named_option(
+        self,
+        other: impl Into<ByteArray>,
+        _name: Option<Arc<Cow<'static, str>>>,
+    ) -> ByteArray {
+        let other = other.into();
+        let mut new_data = Vec::with_capacity(self.data.len() + other.data.len());
+        new_data.extend_from_slice(&self.data);
+        new_data.extend_from_slice(&other.data);
+        ByteArray {
+            data: new_data.into(),
+        }
+    }
+
     pub fn concat(self, other: impl Into<ByteArray>) -> ByteArray {
         self.concat_named_option(other, None)
     }
@@ -179,6 +263,7 @@ impl ByteArray {
         self.concat_named_option(other, Some(name.into()))
     }
 
+    #[cfg(not(feature = "simple-bytearray"))]
     pub fn split(self, at: usize) -> Result<(ByteArray, ByteArray), String> {
         if self.data.len() < at {
             return Err(format!(
@@ -243,6 +328,25 @@ impl ByteArray {
         ))
     }
 
+    #[cfg(feature = "simple-bytearray")]
+    pub fn split(self, at: usize) -> Result<(ByteArray, ByteArray), String> {
+        if self.data.len() < at {
+            return Err(format!(
+                "Index {} is out of bounds for array with length {}, {}.",
+                at,
+                self.data.len(),
+                hex::encode(&self.data)
+            ));
+        }
+        let mut data = self.data.to_vec();
+        let other = data.split_off(at);
+        Ok((
+            ByteArray { data: data.into() },
+            ByteArray { data: other.into() },
+        ))
+    }
+
+    #[cfg(not(feature = "simple-bytearray"))]
     pub fn apply_function(self, data: impl Into<Arc<[u8]>>, function: Function) -> ByteArray {
         ByteArray {
             data: data.into(),
@@ -252,6 +356,12 @@ impl ByteArray {
         }
     }
 
+    #[cfg(feature = "simple-bytearray")]
+    pub fn apply_function(self, data: impl Into<Arc<[u8]>>, _function: Function) -> ByteArray {
+        ByteArray { data: data.into() }
+    }
+
+    #[cfg(not(feature = "simple-bytearray"))]
     pub fn named(self, name: impl Into<Cow<'static, str>>) -> ByteArray {
         ByteArray {
             name: Some(Arc::new(name.into())),
@@ -259,6 +369,12 @@ impl ByteArray {
         }
     }
 
+    #[cfg(feature = "simple-bytearray")]
+    pub fn named(self, _name: impl Into<Cow<'static, str>>) -> ByteArray {
+        ByteArray { ..self }
+    }
+
+    #[cfg(not(feature = "simple-bytearray"))]
     pub fn named_option(self, name: Option<Arc<Cow<'static, str>>>) -> ByteArray {
         ByteArray { name, ..self }
     }
@@ -286,12 +402,12 @@ impl ByteArray {
             let len = bytes.len();
             bytes[len - 1] |= 0x80;
         }
-        Ok(ByteArray {
-            data: bytes.into(),
-            name: None,
-            function: Function::Num2Bin,
-            preimage: None,
-        })
+        Ok(ByteArray::from_preimage(
+            bytes.into(),
+            None,
+            Function::Num2Bin,
+            None,
+        ))
     }
 }
 
@@ -319,24 +435,19 @@ where
     pub fn new(name: impl Into<Cow<'static, str>>, data: T) -> Self {
         FixedByteArray {
             phantom: PhantomData,
-            byte_array: ByteArray {
-                data: data.as_ref().into(),
-                name: Some(Arc::new(name.into())),
-                function: Function::Plain,
-                preimage: None,
-            },
+            byte_array: ByteArray::from_preimage(
+                data.as_ref().into(),
+                Some(Arc::new(name.into())),
+                Function::Plain,
+                None,
+            ),
         }
     }
 
     pub fn new_unnamed(data: T) -> Self {
         FixedByteArray {
             phantom: PhantomData,
-            byte_array: ByteArray {
-                data: data.as_ref().into(),
-                name: None,
-                function: Function::Plain,
-                preimage: None,
-            },
+            byte_array: ByteArray::from_preimage(data.as_ref().into(), None, Function::Plain, None),
         }
     }
 }
@@ -358,12 +469,12 @@ where
         }
         Ok(FixedByteArray {
             phantom: PhantomData,
-            byte_array: ByteArray {
-                data: slice.into(),
-                name: Some(Arc::new(name.into())),
-                function: Function::Plain,
-                preimage: None,
-            },
+            byte_array: ByteArray::from_preimage(
+                slice.into(),
+                Some(Arc::new(name.into())),
+                Function::Plain,
+                None,
+            ),
         })
     }
 
@@ -377,12 +488,7 @@ where
         }
         Ok(FixedByteArray {
             phantom: PhantomData,
-            byte_array: ByteArray {
-                data: slice.into(),
-                name: None,
-                function: Function::Plain,
-                preimage: None,
-            },
+            byte_array: ByteArray::from_preimage(slice.into(), None, Function::Plain, None),
         })
     }
 
@@ -566,6 +672,7 @@ where
     }
 }
 
+#[cfg(not(feature = "simple-bytearray"))]
 #[cfg(test)]
 mod tests {
     use super::{ByteArray, Function};
@@ -611,7 +718,7 @@ mod tests {
         let hash = sha2::Sha256::digest(&cat.data);
         let hashed = cat.apply_function(hash.as_ref(), Function::Sha256);
         let hash_preimage = hashed.preimage.as_ref().expect("No hash_preimage");
-        assert_eq!(hashed.data.as_ref(), hash.as_ref());
+        assert_eq!(hashed.data.as_ref(), hash.as_slice());
         assert_eq!(hash_preimage.len(), 1);
         assert_eq!(hash_preimage[0].data.as_ref(), b"ABC");
         let preimage = hash_preimage[0].preimage.as_ref().expect("No preimage");
@@ -635,7 +742,7 @@ mod tests {
         let outer = c.concat(inner_hashed).concat(d);
         let outer_hash = sha2::Sha256::digest(&outer.data);
         let outer_hashed = outer.apply_function(outer_hash.as_ref(), Function::Sha256);
-        assert_eq!(outer_hashed.data.as_ref(), outer_hash.as_ref());
+        assert_eq!(outer_hashed.data.as_ref(), outer_hash.as_slice());
 
         let outer_preimage = outer_hashed.preimage.as_ref().expect("No preimage");
 
@@ -643,12 +750,12 @@ mod tests {
         let outer_preimage0 = &outer_preimage[0];
         assert_eq!(
             outer_preimage0.data.as_ref(),
-            [b"C", inner_hash.as_ref(), b"D"].concat().as_slice()
+            [b"C", inner_hash.as_slice(), b"D"].concat().as_slice()
         );
         let outer_preimages = outer_preimage0.preimage.as_ref().expect("No preimage");
         assert_eq!(outer_preimages.len(), 3);
         assert_eq!(outer_preimages[0].preimage, None);
-        assert_eq!(outer_preimages[1].data.as_ref(), inner_hash.as_ref());
+        assert_eq!(outer_preimages[1].data.as_ref(), inner_hash.as_slice());
         assert!(outer_preimages[1].preimage.is_some());
         assert_eq!(outer_preimages[2].data.as_ref(), b"D");
         assert_eq!(outer_preimages[2].preimage, None);
@@ -708,11 +815,11 @@ mod tests {
             assert_eq!(right.function, Function::Plain);
             assert_eq!(
                 right.data.as_ref(),
-                [inner_hash.as_ref(), b"D"].concat().as_slice()
+                [inner_hash.as_slice(), b"D"].concat().as_slice()
             );
             assert_eq!(right_preimage.len(), 2);
             assert_eq!(right_preimage[0].function, Function::Sha256);
-            assert_eq!(right_preimage[0].data.as_ref(), inner_hash.as_ref());
+            assert_eq!(right_preimage[0].data.as_ref(), inner_hash.as_slice());
             assert_eq!(right_preimage[1].function, Function::Plain);
             assert_eq!(right_preimage[1].data.as_ref(), b"D");
             let right_preimage2 = right_preimage[0].preimage.as_ref().expect("No preimage");
@@ -763,14 +870,14 @@ mod tests {
             assert_eq!(left.function, Function::Plain);
             assert_eq!(
                 left.data.as_ref(),
-                [b"C", inner_hash.as_ref()].concat().as_slice()
+                [b"C", inner_hash.as_slice()].concat().as_slice()
             );
             assert_eq!(left_preimage.len(), 2);
             assert_eq!(left_preimage[0].function, Function::Plain);
             assert_eq!(left_preimage[0].data.as_ref(), b"C");
             assert_eq!(left_preimage[0].preimage, None);
             assert_eq!(left_preimage[1].function, Function::Sha256);
-            assert_eq!(left_preimage[1].data.as_ref(), inner_hash.as_ref());
+            assert_eq!(left_preimage[1].data.as_ref(), inner_hash.as_slice());
             assert_eq!(&left_preimage[1], &inner_hashed);
             assert_eq!(right.function, Function::Plain);
             assert_eq!(right.data.as_ref(), b"D");
