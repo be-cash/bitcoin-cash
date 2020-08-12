@@ -1,6 +1,6 @@
 [package]
 name = "bitcoin-cash-slp"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["tobiasruck <ruck.tobias@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -10,4 +10,4 @@ documentation = "https://github.com/be-cash/bitcoin-cash"
 repository = "https://github.com/be-cash/bitcoin-cash"
 
 [dependencies]
-bitcoin-cash = {path="../bitcoin-cash", version="0.2.0"}
+bitcoin-cash = "0.2.1"
