@@ -91,6 +91,10 @@ fn serialize_push_prefix(
             vec.push(OP_0 as u8);
             return Ok(PushPrefixTail::NoTail);
         }
+        0 if !is_minimal_push => {
+            vec.push(OP_PUSHDATA1 as u8);
+            vec.push(0);
+        }
         1 if is_minimal_push => {
             let value = bytes[0];
             if value <= 16 {
