@@ -34,7 +34,7 @@ impl ECC for CECC {
         let pubkey = PublicKey::from_slice(pubkey).chain_err(|| ErrorKind::InvalidPubkey)?;
         match self.curve.verify(&msg, &sig, &pubkey) {
             Ok(()) => Ok(true),
-            Err(Error::InvalidSignature) => Ok(false),
+            Err(Error::IncorrectSignature) => Ok(false),
             err => {
                 err.chain_err(|| ErrorKind::InvalidSignatureFormat)?;
                 unreachable!()
