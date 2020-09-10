@@ -29,7 +29,7 @@ pub struct TxPreimage {
     pub sequence: u32,
     pub hash_outputs: Sha256d,
     pub lock_time: u32,
-    pub sighash_flags: SigHashFlags,
+    pub sig_hash_type: u32,
 }
 
 impl SigHashFlags {
@@ -81,14 +81,14 @@ impl TxPreimage {
         for input_idx in 0..tx.num_inputs() {
             let sig_hash_flags = tx.input_sig_hash_flags_at(input_idx);
             let mut preimages = Vec::with_capacity(sig_hash_flags.len());
-            for &sighash_flags in sig_hash_flags {
-                let hash_prevouts = if !sighash_flags.contains(SigHashFlags::ANYONECANPAY) {
+            for &sig_hash_flags in sig_hash_flags {
+                let hash_prevouts = if !sig_hash_flags.contains(SigHashFlags::ANYONECANPAY) {
                     hash_all_prevouts.clone()
                 } else {
                     Sha256d::new([0; 32]).named("hashPrevouts")
                 };
-                let masked_flags = sighash_flags & SigHashFlags::MASK;
-                let hash_sequence = if !sighash_flags.contains(SigHashFlags::ANYONECANPAY)
+                let masked_flags = sig_hash_flags & SigHashFlags::MASK;
+                let hash_sequence = if !sig_hash_flags.contains(SigHashFlags::ANYONECANPAY)
                     && masked_flags != SigHashFlags::SINGLE
                     && masked_flags != SigHashFlags::NONE
                 {
@@ -122,7 +122,7 @@ impl TxPreimage {
                     sequence: tx.input_sequence_at(input_idx),
                     hash_outputs,
                     lock_time: tx.lock_time(),
-                    sighash_flags,
+                    sig_hash_type: sig_hash_flags.bits(),
                 });
             }
             inputs_preimages.push(preimages);
@@ -167,7 +167,7 @@ impl TxPreimage {
             sequence: 0,
             hash_outputs: Sha256d::new([0; 32]).named("hashOutputs"),
             lock_time: 0,
-            sighash_flags: SigHashFlags::ALL,
+            sig_hash_type: SigHashFlags::ALL.bits(),
         }
     }
 
@@ -192,7 +192,7 @@ impl TxPreimage {
             ))
             .concat(ByteArray::new(
                 "sighash",
-                self.sighash_flags.bits().to_le_bytes().to_vec(),
+                self.sig_hash_type.to_le_bytes().to_vec(),
             ))
     }
 }
