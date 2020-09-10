@@ -20,16 +20,16 @@ bitflags! {
 
 #[derive(Clone, Debug, Default)]
 pub struct TxPreimage {
-    version: i32,
-    hash_prevouts: Sha256d,
-    hash_sequence: Sha256d,
-    outpoint: TxOutpoint,
-    script_code: ByteArray,
-    value: u64,
-    sequence: u32,
-    hash_outputs: Sha256d,
-    lock_time: u32,
-    sighash_flags: SigHashFlags,
+    pub version: i32,
+    pub hash_prevouts: Sha256d,
+    pub hash_sequence: Sha256d,
+    pub outpoint: TxOutpoint,
+    pub script_code: ByteArray,
+    pub value: u64,
+    pub sequence: u32,
+    pub hash_outputs: Sha256d,
+    pub lock_time: u32,
+    pub sighash_flags: SigHashFlags,
 }
 
 impl SigHashFlags {
