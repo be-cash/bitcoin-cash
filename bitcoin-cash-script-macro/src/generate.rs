@@ -35,8 +35,6 @@ impl GenerateScript {
         let mut struct_fields = Vec::with_capacity(script.inputs.len());
         let mut enum_variant_fields = HashMap::with_capacity(script.script_variants.len());
         let mut impl_pushops = Vec::with_capacity(script.inputs.len());
-        let mut impl_types = Vec::with_capacity(script.inputs.len());
-        let mut impl_names = Vec::with_capacity(script.inputs.len());
         self.formatted_lines =
             gen_source::format_stmts(&self.max_line_widths, stmt_token_streams.into_iter())
                 .map_err(|err| Error::new(script.sig.span(), err))?;
@@ -96,10 +94,6 @@ impl GenerateScript {
                     alt_pushed_names: Some(vec![]),
                 }
             });
-            impl_types.push(quote! {
-                <#ty as Default>::default().to_data_type()
-            });
-            impl_names.push(ident_str.clone());
             let stack_item = StackItem {
                 ident: input.ident.clone(),
                 name: ident_str,
@@ -157,7 +151,7 @@ impl GenerateScript {
             }));
         let script_ident = &self.script_ident;
 
-        let (input_struct_enum, impl_ops, impl_types, impl_names) = if script
+        let (input_struct_enum, impl_ops) = if script
             .script_variants
             .is_empty()
         {
@@ -172,24 +166,11 @@ impl GenerateScript {
                         #(#impl_pushops),*
                     ]
                 },
-                quote! {
-                    vec![
-                        #(#impl_types),*
-                    ]
-                },
-                quote! {
-                    &[
-                        #(#impl_names),*
-                    ]
-                },
             )
         } else {
             let mut enum_variants = Vec::with_capacity(script.script_variants.len());
             let mut match_ops = Vec::with_capacity(script.script_variants.len());
-            let mut match_types = Vec::with_capacity(script.script_variants.len());
-            let mut match_names = Vec::with_capacity(script.script_variants.len());
             for (variant_name, variant_fields) in enum_variant_fields {
-                let variant_name_str = variant_name.to_string();
                 let variant_fields_quote = variant_fields.iter().map(|(ident, ty, _, attrs)| {
                     quote! {
                         #(#attrs)*
@@ -228,36 +209,7 @@ impl GenerateScript {
                         #(#variant_pushops),*
                     ]
                 });
-
-                let variant_types = variant_fields.iter().map(|(_, ty, _, _)| {
-                    quote! {
-                        <#ty as Default>::default().to_data_type()
-                    }
-                });
-                match_types.push(quote! {
-                    Some(#variant_name_str) => vec![
-                        #(#variant_types),*
-                    ]
-                });
-                let field_names_str = variant_fields
-                    .iter()
-                    .map(|(ident, _, _, _)| ident.to_string());
-                match_names.push(quote! {
-                    Some(#variant_name_str) => &[
-                        #(#field_names_str),*
-                    ]
-                });
             }
-            let match_none = quote! {
-                None => panic!("Must provide enum variant name")
-            };
-            let match_unknown = quote! {
-                Some(variant) => panic!(format!("Unknown variant: {}", variant))
-            };
-            match_types.push(match_unknown.clone());
-            match_types.push(match_none.clone());
-            match_names.push(match_unknown);
-            match_names.push(match_none);
             (
                 quote! {
                     #vis enum #input_struct #generics {
@@ -267,16 +219,6 @@ impl GenerateScript {
                 quote! {
                     match self {
                         #(#match_ops),*
-                    }
-                },
-                quote! {
-                    match variant_name {
-                        #(#match_types),*
-                    }
-                },
-                quote! {
-                    match variant_name {
-                        #(#match_names),*
                     }
                 },
             )
@@ -289,17 +231,6 @@ impl GenerateScript {
                 fn ops(&self) -> std::borrow::Cow<[#crate_ident::TaggedOp]> {
                     use #crate_ident::BitcoinDataType;
                     #impl_ops.into()
-                }
-            }
-
-            impl #generics #crate_ident::InputScript for #input_struct<#generics_idents> {
-                fn types(variant_name: Option<&str>) -> Vec<#crate_ident::DataType> {
-                    use #crate_ident::BitcoinDataType;
-                    #impl_types
-                }
-
-                fn names(variant_name: Option<&str>) -> &'static [&'static str] {
-                    #impl_names
                 }
             }
 

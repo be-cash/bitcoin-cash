@@ -1,6 +1,6 @@
 use crate::error::Result;
 use crate::{
-    encode_bitcoin_code, error::ErrorKind, InputScript, Ops, Script, SigHashFlags, TaggedOp,
+    encode_bitcoin_code, error::ErrorKind, Ops, Script, SigHashFlags, TaggedOp,
     TaggedScript, TxInput, TxOutpoint, TxOutput, TxPreimage, UnhashedTx,
 };
 use std::any::Any;
@@ -76,7 +76,7 @@ pub trait ToPreimages {
 }
 
 pub trait Signatory {
-    type Script: InputScript;
+    type Script: Ops;
     type Signatures: 'static;
     fn sig_hash_flags(&self) -> Vec<SigHashFlags>;
     fn placeholder_signatures(&self) -> Self::Signatures;
