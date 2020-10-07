@@ -3,7 +3,7 @@ use crate::{
     TxOutput, UnhashedTx,
 };
 use bimap::BiMap;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;

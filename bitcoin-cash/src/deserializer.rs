@@ -248,7 +248,7 @@ mod tests {
     use crate::error::Result;
     use crate::serializer::encode_bitcoin_code;
     use crate::{Hashed, Sha256d};
-    use serde_derive::{Deserialize, Serialize};
+    use serde::{Deserialize, Serialize};
 
     #[derive(Deserialize, Serialize, PartialEq, Debug)]
     struct TxInput {

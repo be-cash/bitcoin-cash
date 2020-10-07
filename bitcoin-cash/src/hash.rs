@@ -3,7 +3,7 @@ use crate::{
     Function, Op,
 };
 
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use sha1::Digest;
 use std::borrow::Cow;
 use std::fmt::{Debug, Display};

@@ -3,7 +3,7 @@ use crate::{
     Script, Sha256d, ToPreimages, TxOutpoint, encoding_utils::encode_var_int,
 };
 use bitflags::bitflags;
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 bitflags! {
     #[derive(Deserialize, Serialize, Default)]

@@ -2,7 +2,7 @@ use crate::{
     encode_bitcoin_code, encoding_utils, error::Result, ByteArray, Hashed, Script, Sha256d,
     SigHashFlags, ToPreimages, TxPreimage,
 };
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_SEQUENCE: u32 = 0xffff_ffff;
 // Mark Lundeberg: "71 bytes for the DER, but then +1 for the hashtype,
