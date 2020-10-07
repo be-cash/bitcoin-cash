@@ -15,7 +15,7 @@ proc-macro = true
 [dependencies]
 bitcoin-cash-base = {path="../bitcoin-cash-base", version="0.2.0"}
 
-syn = {version="1.0", features=["full"]}
+syn = "1.0"
 quote = "1.0"
 proc-macro2 = "1.0"
 toolchain_find = "0.1"
