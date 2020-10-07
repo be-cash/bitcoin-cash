@@ -94,7 +94,7 @@ impl UnhashedTx {
 
     pub fn serialize(&self) -> Result<ByteArray> {
         let version = ByteArray::new("version", encode_bitcoin_code(&self.version)?);
-        let lock_time = ByteArray::new("lock_time", encode_bitcoin_code(&self.version)?);
+        let lock_time = ByteArray::new("lock_time", encode_bitcoin_code(&self.lock_time)?);
 
         let mut inputs_len_ser = Vec::new();
         encoding_utils::write_var_int(&mut inputs_len_ser, self.inputs.len() as u64)?;
