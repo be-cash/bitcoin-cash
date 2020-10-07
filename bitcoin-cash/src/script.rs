@@ -139,7 +139,9 @@ fn serialize_push_bytes(bytes: ByteArray, is_minimal_push: bool) -> Result<ByteA
 pub fn serialize_op(op: &Op) -> Result<ByteArray> {
     use Opcode::*;
     match *op {
-        Op::Code(opcode) => Ok([opcode as u8].into()),
+        Op::Code(opcode) => Ok(
+            ByteArray::from_slice(format!("{:?}", opcode), &[opcode as u8])
+        ),
         Op::Invalid(opcode) => Ok([opcode as u8].into()),
         Op::PushBoolean(boolean) => Ok([if boolean { OP_1 as u8 } else { OP_0 as u8 }].into()),
         Op::PushInteger(int) => Ok([match int {
