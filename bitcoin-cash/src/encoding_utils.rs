@@ -31,6 +31,12 @@ pub fn write_var_int<W: io::Write>(write: &mut W, number: u64) -> io::Result<()>
     Ok(())
 }
 
+pub fn encode_var_int(number: u64) -> Vec<u8> {
+    let mut vec = Vec::new();
+    write_var_int(&mut vec, number).unwrap();
+    vec
+}
+
 pub fn encode_minimally(vec: &mut Vec<u8>) {
     // If the last byte is not 0x00 or 0x80, we are minimally encoded.
     if let Some(&last) = vec.last() {
