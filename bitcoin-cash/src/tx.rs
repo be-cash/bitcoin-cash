@@ -5,7 +5,9 @@ use crate::{
 use serde_derive::{Deserialize, Serialize};
 
 pub const DEFAULT_SEQUENCE: u32 = 0xffff_ffff;
-pub const MAX_SIGNATURE_SIZE: usize = 73; // explained https://bitcoin.stackexchange.com/a/77192
+// Mark Lundeberg: "71 bytes for the DER, but then +1 for the hashtype,
+// so 72 bytes for the full tx signature."
+pub const MAX_SIGNATURE_SIZE: usize = 72;
 
 #[derive(Deserialize, Serialize, PartialEq, Debug, Clone, Default)]
 pub struct TxOutpoint {
