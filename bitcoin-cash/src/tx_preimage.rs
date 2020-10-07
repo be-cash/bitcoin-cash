@@ -1,6 +1,6 @@
 use crate::{
     encode_bitcoin_code, BitcoinByteArray, BitcoinDataType, ByteArray, DataType, Hashed, Op,
-    Script, Sha256d, ToPreimages, TxOutpoint,
+    Script, Sha256d, ToPreimages, TxOutpoint, encoding_utils::encode_var_int,
 };
 use bitflags::bitflags;
 use serde_derive::{Deserialize, Serialize};
@@ -154,6 +154,7 @@ impl TxPreimage {
     }
 
     pub fn empty_with_script(script_code: &Script) -> TxPreimage {
+        let script_code = script_code.to_script_code_first().serialize().expect("Cannot encode script_code");
         TxPreimage {
             version: 0,
             hash_prevouts: Sha256d::new([0; 32]).named("hashPrevouts"),
@@ -162,7 +163,10 @@ impl TxPreimage {
                 tx_hash: Sha256d::new([0; 32]),
                 vout: 0,
             },
-            script_code: script_code.serialize().expect("Cannot encode script_code"),
+            script_code: ByteArray::new(
+                "scriptCodeLen",
+                encode_var_int(script_code.len() as u64),
+            ).concat(script_code),
             value: 0,
             sequence: 0,
             hash_outputs: Sha256d::new([0; 32]).named("hashOutputs"),
