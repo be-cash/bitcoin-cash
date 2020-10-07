@@ -180,7 +180,7 @@ impl TxPreimage {
             .concat(self.hash_prevouts.as_byte_array().clone())
             .concat(self.hash_sequence.as_byte_array().clone())
             .concat(ByteArray::new(
-                "scriptCode",
+                "outpoint",
                 encode_bitcoin_code(&self.outpoint).unwrap(),
             ))
             .concat(self.script_code.clone())
