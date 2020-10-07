@@ -151,10 +151,7 @@ impl GenerateScript {
             }));
         let script_ident = &self.script_ident;
 
-        let (input_struct_enum, impl_ops) = if script
-            .script_variants
-            .is_empty()
-        {
+        let (input_struct_enum, impl_ops) = if script.script_variants.is_empty() {
             (
                 quote! {
                     #vis struct #input_struct #generics {

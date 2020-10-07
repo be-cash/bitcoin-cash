@@ -1,5 +1,5 @@
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use crate::error;
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io;
 
 pub fn read_var_int<R: io::Read>(read: &mut R) -> io::Result<u64> {

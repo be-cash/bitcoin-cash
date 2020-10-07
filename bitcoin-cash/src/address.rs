@@ -2,7 +2,7 @@ use num_derive::*;
 use std::borrow::Cow;
 
 use crate::error::{Error, ErrorKind, Result};
-use crate::{serialize_ops, Hash160, Hashed, Ops, Script, Pubkey};
+use crate::{serialize_ops, Hash160, Hashed, Ops, Pubkey, Script};
 
 const CHARSET: &[u8] = b"qpzry9x8gf2tvdw0s3jn54khce6mua7l";
 
@@ -136,7 +136,11 @@ impl<'a> Address<'a> {
     }
 
     pub fn from_pk<P: Into<AddressPrefix<'a>>>(prefix: P, pubkey: &Pubkey) -> Address<'a> {
-        Address::from_hash(prefix, AddressType::P2PKH, Hash160::digest(pubkey.as_byte_array()))
+        Address::from_hash(
+            prefix,
+            AddressType::P2PKH,
+            Hash160::digest(pubkey.as_byte_array()),
+        )
     }
 
     pub fn hash(&self) -> &Hash160 {

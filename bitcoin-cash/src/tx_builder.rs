@@ -1,7 +1,7 @@
 use crate::error::Result;
 use crate::{
-    encode_bitcoin_code, error::ErrorKind, Ops, Script, SigHashFlags, TaggedOp,
-    TaggedScript, TxInput, TxOutpoint, TxOutput, TxPreimage, UnhashedTx,
+    encode_bitcoin_code, error::ErrorKind, Ops, Script, SigHashFlags, TaggedOp, TaggedScript,
+    TxInput, TxOutpoint, TxOutput, TxPreimage, UnhashedTx,
 };
 use std::any::Any;
 use std::collections::HashMap;
@@ -18,7 +18,9 @@ struct TxBuilderInput<'b> {
     input: UnsignedTxInput,
     func_script: Box<
         dyn Fn(&[TxPreimage], &TxBuilder, Option<Box<dyn Any>>, &Script, &[TxOutput]) -> Script
-            + 'b + Sync + Send,
+            + 'b
+            + Sync
+            + Send,
     >,
     sig_hash_flags: Vec<SigHashFlags>,
     lock_script: Script,

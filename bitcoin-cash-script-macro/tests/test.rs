@@ -601,12 +601,9 @@ fn test_doctest() {
     #[bitcoin_cash::script(Inputs)]
     fn script(
         _: (),
-        /// Doctest a
-        a: i32,
-        /// Doctest b
-        b: i32,
-        /// Doctest c
-        c: i32
+        #[doc = "Doctest"] a: i32,
+        #[doc = "Doctest"] b: i32,
+        #[doc = "Doctest"] c: i32,
     ) {
         let (__, __, beer) = OP_ROT(a, __, __);
         OP_DROP(beer);

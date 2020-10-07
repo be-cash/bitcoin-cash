@@ -107,9 +107,7 @@ fn serialize_push_prefix(
                 vec.push(1);
             }
         }
-        len @ 0x00..=0x4b => {
-            vec.push(len as u8)
-        }
+        len @ 0x00..=0x4b => vec.push(len as u8),
         len @ 0x4c..=0xff => {
             vec.push(OP_PUSHDATA1 as u8);
             vec.push(len as u8);
@@ -139,9 +137,10 @@ fn serialize_push_bytes(bytes: ByteArray, is_minimal_push: bool) -> Result<ByteA
 pub fn serialize_op(op: &Op) -> Result<ByteArray> {
     use Opcode::*;
     match *op {
-        Op::Code(opcode) => Ok(
-            ByteArray::from_slice(format!("{:?}", opcode), &[opcode as u8])
-        ),
+        Op::Code(opcode) => Ok(ByteArray::from_slice(
+            format!("{:?}", opcode),
+            &[opcode as u8],
+        )),
         Op::Invalid(opcode) => Ok([opcode as u8].into()),
         Op::PushBoolean(boolean) => Ok([if boolean { OP_1 as u8 } else { OP_0 as u8 }].into()),
         Op::PushInteger(int) => Ok([match int {
