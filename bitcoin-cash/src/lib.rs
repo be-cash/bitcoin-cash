@@ -24,7 +24,7 @@ pub use pubkey::*;
 pub use script::*;
 pub use scripts::*;
 pub use serialize_json::*;
-pub use serializer::*;
+pub use serializer::{encode_bitcoin_code_all, SerializeExt};
 pub use tagged_op::*;
 pub use tx::*;
 pub use tx_builder::*;

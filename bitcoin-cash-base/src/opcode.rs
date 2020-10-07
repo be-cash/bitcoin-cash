@@ -3,6 +3,8 @@ use num_derive::*;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 
+use strum_macros::IntoStaticStr;
+
 use crate::data_type::{BitcoinBoolean, BitcoinByteArray, BitcoinInteger, DataType};
 
 lazy_static! {
@@ -58,7 +60,7 @@ pub struct OpcodeBehavior {
 /// }
 /// ```
 #[allow(non_camel_case_types)]
-#[derive(Clone, Debug, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, FromPrimitive)]
+#[derive(Clone, Debug, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, FromPrimitive, IntoStaticStr)]
 pub enum Opcode {
     /// ```text
     /// OP_0() -> Integer

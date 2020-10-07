@@ -1,6 +1,5 @@
 use crate::{
-    encode_bitcoin_code, encoding_utils, error::Result, ByteArray, Hashed, Script, Sha256d,
-    SigHashFlags, ToPreimages, TxPreimage,
+    ByteArray, Hashed, Script, SerializeExt, Sha256d, SigHashFlags, ToPreimages, TxPreimage,
 };
 use serde::{Deserialize, Serialize};
 
@@ -56,36 +55,6 @@ pub struct Tx {
     raw: ByteArray,
 }
 
-impl TxInput {
-    pub fn serialize(&self) -> Result<ByteArray> {
-        let vout = ByteArray::new("vout", encode_bitcoin_code(&self.prev_out.vout)?);
-        let sequence = ByteArray::new("sequence", encode_bitcoin_code(&self.sequence)?);
-        let script = self.script.serialize()?.named("script");
-        let mut script_len_ser = Vec::new();
-        encoding_utils::write_var_int(&mut script_len_ser, script.len() as u64)?;
-        let script_len = ByteArray::new("script_len", script_len_ser);
-        Ok(self
-            .prev_out
-            .tx_hash
-            .clone()
-            .concat(vout)
-            .concat(script_len)
-            .concat(script)
-            .concat(sequence))
-    }
-}
-
-impl TxOutput {
-    pub fn serialize(&self) -> Result<ByteArray> {
-        let value = ByteArray::new("value", encode_bitcoin_code(&self.value)?);
-        let script = self.script.serialize()?.named("script");
-        let mut script_len_ser = Vec::new();
-        encoding_utils::write_var_int(&mut script_len_ser, script.len() as u64)?;
-        let script_len = ByteArray::new("script_len", script_len_ser);
-        Ok(value.concat(script_len).concat(script))
-    }
-}
-
 impl UnhashedTx {
     pub fn preimages(&self, sig_hash_flags: &[SigHashFlags]) -> Vec<Vec<TxPreimage>> {
         TxPreimage::build_preimages(&SigTxPreimage {
@@ -94,33 +63,8 @@ impl UnhashedTx {
         })
     }
 
-    pub fn serialize(&self) -> Result<ByteArray> {
-        let version = ByteArray::new("version", encode_bitcoin_code(&self.version)?);
-        let lock_time = ByteArray::new("lock_time", encode_bitcoin_code(&self.lock_time)?);
-
-        let mut inputs_len_ser = Vec::new();
-        encoding_utils::write_var_int(&mut inputs_len_ser, self.inputs.len() as u64)?;
-        let inputs_len = ByteArray::new("inputs_len", inputs_len_ser);
-
-        let mut outputs_len_ser = Vec::new();
-        encoding_utils::write_var_int(&mut outputs_len_ser, self.outputs.len() as u64)?;
-        let outputs_len = ByteArray::new("outputs_len", outputs_len_ser);
-
-        let mut byte_array = version.concat(inputs_len);
-        for input in self.inputs.iter() {
-            byte_array = byte_array.concat(input.serialize()?);
-        }
-
-        byte_array = byte_array.concat(outputs_len);
-        for output in self.outputs.iter() {
-            byte_array = byte_array.concat(output.serialize()?);
-        }
-
-        Ok(byte_array.concat(lock_time))
-    }
-
     pub fn hashed(self) -> Tx {
-        let raw = self.serialize().expect("Couldn't encode UnhashedTx");
+        let raw = self.ser();
         let hash = Sha256d::digest(raw.clone());
         Tx {
             unhashed_tx: self,

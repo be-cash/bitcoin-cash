@@ -246,8 +246,7 @@ where
 mod tests {
     use super::decode_bitcoin_code;
     use crate::error::Result;
-    use crate::serializer::encode_bitcoin_code;
-    use crate::{Hashed, Sha256d};
+    use crate::{Hashed, SerializeExt, Sha256d};
     use serde::{Deserialize, Serialize};
 
     #[derive(Deserialize, Serialize, PartialEq, Debug)]
@@ -357,9 +356,9 @@ mod tests {
             hex::encode(b"pie"),
             hex::encode(b"what"),
         ))?;
-        assert_eq!(sample, decode_bitcoin_code(&encode_bitcoin_code(&sample)?)?);
+        assert_eq!(sample, decode_bitcoin_code(&sample.ser())?);
         assert_eq!(sample, decode_bitcoin_code(&sample_encoded)?);
-        assert_eq!(encode_bitcoin_code(&sample)?, sample_encoded);
+        assert_eq!(sample.ser().as_slice(), sample_encoded.as_slice());
         Ok(())
     }
 
@@ -367,22 +366,22 @@ mod tests {
     fn test_encode_lengths() -> Result<()> {
         #[derive(Deserialize, Serialize, PartialEq, Debug)]
         struct Test(Vec<u8>);
-        let encoded = encode_bitcoin_code(&Test(vec![0x77; 0xfc]))?;
+        let encoded = Test(vec![0x77; 0xfc]).ser();
         assert_eq!(encoded[0], 0xfc);
         assert_eq!(&encoded[1..], &[0x77; 0xfc][..]);
-        let encoded = encode_bitcoin_code(&Test(vec![0x88; 0xfd]))?;
+        let encoded = Test(vec![0x88; 0xfd]).ser();
         assert_eq!(&encoded[0..3], &[0xfd, 0xfd, 0x00][..]);
         assert_eq!(&encoded[3..], &[0x88; 0xfd][..]);
-        let encoded = encode_bitcoin_code(&Test(vec![0x99; 0x103]))?;
+        let encoded = Test(vec![0x99; 0x103]).ser();
         assert_eq!(&encoded[0..3], &[0xfd, 0x03, 0x01][..]);
         assert_eq!(&encoded[3..], &[0x99; 0x103][..]);
-        let encoded = encode_bitcoin_code(&Test(vec![0xaa; 0xffff]))?;
+        let encoded = Test(vec![0xaa; 0xffff]).ser();
         assert_eq!(&encoded[0..3], &[0xfd, 0xff, 0xff][..]);
         assert_eq!(&encoded[3..], &[0xaa; 0xffff][..]);
-        let encoded = encode_bitcoin_code(&Test(vec![0xbb; 0x10000]))?;
+        let encoded = Test(vec![0xbb; 0x10000]).ser();
         assert_eq!(&encoded[0..5], &[0xfe, 0x00, 0x00, 0x01, 0x00][..]);
         assert_eq!(&encoded[5..], &[0xbb; 0x10000][..]);
-        let encoded = encode_bitcoin_code(&Test(vec![0xbb; 0x123456]))?;
+        let encoded = Test(vec![0xbb; 0x123456]).ser();
         assert_eq!(&encoded[0..5], &[0xfe, 0x56, 0x34, 0x12, 0x00][..]);
         assert_eq!(&encoded[5..], &[0xbb; 0x123456][..]);
         Ok(())
@@ -497,7 +496,7 @@ mod tests {
             "76a914f450f83dd8d1b09326ae64857c3e9dfaa8a34ee688ac",
         );
 
-        assert_eq!(encode_bitcoin_code(&tx)?, tx_raw);
+        assert_eq!(tx.ser().as_slice(), tx_raw.as_slice());
 
         Ok(())
     }

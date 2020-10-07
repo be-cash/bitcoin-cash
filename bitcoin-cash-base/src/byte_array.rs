@@ -1,6 +1,6 @@
 use crate::Integer;
 use byteorder::{LittleEndian, WriteBytesExt};
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::hash::Hash;
 use std::marker::PhantomData;
@@ -146,6 +146,17 @@ impl ByteArray {
         ByteArray { data: slice.into() }
     }
 
+    pub fn from_parts(parts: impl IntoIterator<Item = ByteArray>) -> ByteArray {
+        let mut byte_array: Option<ByteArray> = None;
+        for part in parts {
+            byte_array = Some(match byte_array {
+                Some(byte_array) => byte_array.concat(part),
+                None => part,
+            })
+        }
+        byte_array.unwrap_or_else(|| ByteArray::new_unnamed(Vec::new()))
+    }
+
     #[cfg(not(feature = "simple-bytearray"))]
     pub fn function(&self) -> Function {
         self.function
@@ -198,6 +209,14 @@ impl ByteArray {
 
     pub fn data(&self) -> &Arc<[u8]> {
         &self.data
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
+        &self.data
+    }
+
+    pub fn hex(&self) -> String {
+        hex::encode(&self)
     }
 
     #[cfg(not(feature = "simple-bytearray"))]

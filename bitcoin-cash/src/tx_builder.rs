@@ -1,7 +1,7 @@
 use crate::error::Result;
 use crate::{
-    encode_bitcoin_code, error::ErrorKind, Ops, Script, SigHashFlags, TaggedOp, TaggedScript,
-    TxInput, TxOutpoint, TxOutput, TxPreimage, UnhashedTx,
+    error::ErrorKind, Ops, Script, SerializeExt, SigHashFlags, TaggedOp, TaggedScript, TxInput,
+    TxOutpoint, TxOutput, TxPreimage, UnhashedTx,
 };
 use std::any::Any;
 use std::collections::HashMap;
@@ -136,12 +136,7 @@ impl<'b> TxBuilder<'b> {
                 .ops()
                 .into();
             if input_script_builder.is_p2sh() {
-                ops.push(TaggedOp::from_op(
-                    lock_script
-                        .serialize()
-                        .expect("Cannot encode lock_script")
-                        .into(),
-                ));
+                ops.push(TaggedOp::from_op(lock_script.ser().into()));
             }
             Script::new(ops)
         };
@@ -216,9 +211,7 @@ impl<'b> TxBuilder<'b> {
             outputs,
             lock_time: self.lock_time,
         };
-        encode_bitcoin_code(&tx)
-            .expect("Failed to encode tx for size estimation")
-            .len()
+        tx.ser().len()
     }
 
     fn make_outputs(&self, leftover_amounts: &HashMap<usize, u64>) -> Vec<TxOutput> {

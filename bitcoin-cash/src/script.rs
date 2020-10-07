@@ -1,7 +1,13 @@
-use crate::error::{Result, ScriptSerializeError};
-use crate::{encoding_utils::encode_int, ByteArray, Op, Opcode, Ops, TaggedOp};
+use crate::error::{self, ScriptSerializeError};
+use crate::{
+    encoding_utils::encode_int, serializer::NEXT_BYTE_ARRAY, ByteArray, Op, Opcode, Ops, TaggedOp,
+};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use serde::{de, ser, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{
+    de,
+    ser::{self, SerializeStruct},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
 use std::borrow::Cow;
 use std::io::Read;
 use std::sync::Arc;
@@ -20,10 +26,6 @@ impl Ops for Script {
 impl Script {
     pub fn new(ops: impl Into<Arc<[TaggedOp]>>) -> Self {
         Script { ops: ops.into() }
-    }
-
-    pub fn serialize(&self) -> Result<ByteArray> {
-        serialize_ops(self.ops.iter().map(|op| &op.op))
     }
 }
 
@@ -84,7 +86,7 @@ fn serialize_push_prefix(
     vec: &mut Vec<u8>,
     bytes: &[u8],
     is_minimal_push: bool,
-) -> Result<PushPrefixTail> {
+) -> error::Result<PushPrefixTail> {
     use Opcode::*;
     match bytes.len() {
         0 if is_minimal_push => {
@@ -125,50 +127,64 @@ fn serialize_push_prefix(
     Ok(PushPrefixTail::PushedData)
 }
 
-fn serialize_push_bytes(bytes: ByteArray, is_minimal_push: bool) -> Result<ByteArray> {
+fn serialize_push_bytes<SS: SerializeStruct>(
+    bytes: ByteArray,
+    is_minimal_push: bool,
+    serialize_struct: &mut SS,
+) -> Result<(), SS::Error> {
+    use ser::Error;
     use PushPrefixTail::*;
     let mut vec = Vec::new();
-    match serialize_push_prefix(&mut vec, &bytes, is_minimal_push)? {
-        NoTail => Ok(vec.into()),
-        PushedData => Ok(ByteArray::new_unnamed(vec).concat(bytes)),
-    }
+    let byte_array: ByteArray = match serialize_push_prefix(&mut vec, &bytes, is_minimal_push)
+        .map_err(|err| SS::Error::custom(err.to_string()))?
+    {
+        NoTail => vec.into(),
+        PushedData => ByteArray::new_unnamed(vec).concat(bytes),
+    };
+    *NEXT_BYTE_ARRAY.lock().unwrap() = Some(byte_array);
+    serialize_struct.serialize_field("byte_array", b"ignored")
 }
 
-pub fn serialize_op(op: &Op) -> Result<ByteArray> {
+fn serialize_op<SS: SerializeStruct>(op: &Op, serialize_struct: &mut SS) -> Result<(), SS::Error> {
+    use ser::Error;
     use Opcode::*;
     match *op {
-        Op::Code(opcode) => Ok(ByteArray::from_slice(
-            format!("{:?}", opcode),
-            &[opcode as u8],
-        )),
-        Op::Invalid(opcode) => Ok([opcode as u8].into()),
-        Op::PushBoolean(boolean) => Ok([if boolean { OP_1 as u8 } else { OP_0 as u8 }].into()),
-        Op::PushInteger(int) => Ok([match int {
-            -1 => OP_1NEGATE as u8,
-            0 => OP_0 as u8,
-            1..=16 => OP_1 as u8 + int as u8 - 1,
-            -0x8000_0000 => return ScriptSerializeError::InvalidInteger.into_err(),
-            _ => {
-                return serialize_push_bytes(encode_int(int).into(), false);
-            }
-        }]
-        .into()),
+        Op::Code(opcode) => serialize_struct.serialize_field(opcode.into(), &(opcode as u8)),
+        Op::Invalid(opcode) => serialize_struct.serialize_field("Invalid Opcode", &(opcode as u8)),
+        Op::PushBoolean(boolean) => serialize_struct.serialize_field(
+            if boolean { "OP_TRUE" } else { "OP_FALSE" },
+            &(boolean as u8),
+        ),
+        Op::PushInteger(int) => match int {
+            -1 => serialize_op(&Op::Code(OP_1NEGATE), serialize_struct),
+            0 => serialize_op(&Op::Code(OP_0), serialize_struct),
+            1..=16 => serialize_op(
+                &Op::Code(num::FromPrimitive::from_u8(OP_1 as u8 + int as u8 - 1).unwrap()),
+                serialize_struct,
+            ),
+            -0x8000_0000 => Err(SS::Error::custom("Invalid out of range integer")),
+            _ => serialize_push_bytes(encode_int(int).into(), false, serialize_struct),
+        },
         Op::PushByteArray {
             ref array,
             is_minimal,
-        } => serialize_push_bytes(array.clone(), is_minimal),
+        } => serialize_push_bytes(array.clone(), is_minimal, serialize_struct),
     }
 }
 
-pub fn serialize_ops<'a>(ops: impl IntoIterator<Item = &'a Op>) -> Result<ByteArray> {
-    let mut byte_array: ByteArray = [].into();
+fn serialize_ops<'a, S: Serializer>(
+    ops: impl IntoIterator<Item = &'a Op>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    let ops = ops.into_iter().collect::<Vec<_>>();
+    let mut serialize_struct = serializer.serialize_struct("script", ops.len())?;
     for op in ops {
-        byte_array = byte_array.concat(serialize_op(op)?);
+        serialize_op(op, &mut serialize_struct)?;
     }
-    Ok(byte_array)
+    serialize_struct.end()
 }
 
-pub fn deserialize_ops(bytes: &[u8]) -> Result<Vec<Op>> {
+pub fn deserialize_ops(bytes: &[u8]) -> error::Result<Vec<Op>> {
     use Opcode::*;
     let mut i = 0;
     let mut ops = Vec::new();
@@ -218,7 +234,7 @@ pub fn deserialize_ops(bytes: &[u8]) -> Result<Vec<Op>> {
     Ok(ops)
 }
 
-pub fn deserialize_ops_byte_array(byte_array: ByteArray) -> Result<Vec<Op>> {
+pub fn deserialize_ops_byte_array(byte_array: ByteArray) -> error::Result<Vec<Op>> {
     use std::convert::TryInto;
     use Opcode::*;
     let mut ops = Vec::new();
@@ -277,12 +293,8 @@ pub fn deserialize_ops_byte_array(byte_array: ByteArray) -> Result<Vec<Op>> {
 }
 
 impl Serialize for Script {
-    fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
-        use ser::Error;
-        serializer.serialize_bytes(
-            &serialize_ops(self.ops.iter().map(|op| &op.op))
-                .map_err(|err| S::Error::custom(err.to_string()))?,
-        )
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serialize_ops(self.ops.iter().map(|op| &op.op), serializer)
     }
 }
 
@@ -290,21 +302,18 @@ struct ScriptVisitor;
 
 impl<'de> de::Visitor<'de> for ScriptVisitor {
     type Value = Vec<TaggedOp>;
-    fn expecting(
-        &self,
-        fmt: &mut std::fmt::Formatter<'_>,
-    ) -> std::result::Result<(), std::fmt::Error> {
+    fn expecting(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         write!(fmt, "a byte array")
     }
 
-    fn visit_bytes<E: de::Error>(self, v: &[u8]) -> std::result::Result<Self::Value, E> {
+    fn visit_bytes<E: de::Error>(self, v: &[u8]) -> Result<Self::Value, E> {
         let ops = deserialize_ops(v).map_err(|err| E::custom(err.to_string()))?;
         Ok(ops.into_iter().map(TaggedOp::from_op).collect())
     }
 }
 
 impl<'de, 'a> Deserialize<'de> for Script {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
