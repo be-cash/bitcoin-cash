@@ -1,4 +1,5 @@
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use crate::error;
 use std::io;
 
 pub fn read_var_int<R: io::Read>(read: &mut R) -> io::Result<u64> {
@@ -86,21 +87,28 @@ pub fn encode_bool(b: bool) -> Vec<u8> {
     }
 }
 
-pub fn vec_to_int(vec: &[u8]) -> i32 {
+fn try_shl(a: i32, b: u32, vec: &[u8]) -> Result<i32, error::Error> {
+    a.checked_shl(b)
+        .ok_or_else(|| error::ErrorKind::Msg(format!("Overflow for {}", hex::encode(vec))).into())
+}
+
+pub fn vec_to_int(vec: &[u8]) -> Result<i32, error::Error> {
     if vec.is_empty() {
-        return 0;
+        return Ok(0);
     }
     let mut shift = 0;
     let mut int = 0;
     let sign_bit = vec[vec.len() - 1] & 0x80;
     for (i, value) in vec.iter().enumerate() {
         if i == vec.len() - 1 && sign_bit != 0 {
-            int += ((*value ^ sign_bit) as i32) << (shift);
+            int += try_shl((*value ^ sign_bit) as i32, shift, vec)?;
             int *= -1;
         } else {
-            int += (*value as i32) << (shift);
+            if *value != 0 {
+                int += try_shl(*value as i32, shift, vec)?;
+            }
             shift += 8;
         }
     }
-    int
+    Ok(int)
 }
