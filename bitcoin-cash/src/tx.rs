@@ -156,6 +156,10 @@ impl Tx {
     pub fn preimages(&self, sig_hash_flags: &[SigHashFlags]) -> Vec<Vec<TxPreimage>> {
         self.unhashed_tx.preimages(sig_hash_flags)
     }
+
+    pub fn unhashed_tx(&self) -> &UnhashedTx {
+        &self.unhashed_tx
+    }
 }
 
 impl Default for UnhashedTx {
