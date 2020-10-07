@@ -7,7 +7,7 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct UnsignedTxInput {
     pub prev_out: TxOutpoint,
     pub sequence: u32,
