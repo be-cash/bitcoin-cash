@@ -24,4 +24,11 @@ impl TaggedOp {
             alt_pushed_names: None,
         }
     }
+
+    pub fn named(mut self, name: impl Into<Cow<'static, str>>) -> TaggedOp {
+        self.pushed_names = Some(vec![
+            Some(name.into()),
+        ]);
+        self
+    }
 }
