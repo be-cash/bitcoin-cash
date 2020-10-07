@@ -421,4 +421,8 @@ impl<T> InputReference<T> {
             input_idx,
         }
     }
+
+    pub fn input_idx(&self) -> usize {
+        self.input_idx
+    }
 }
