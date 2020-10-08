@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate strum_macros;
+
 mod byte_array;
 mod data_type;
 mod op;

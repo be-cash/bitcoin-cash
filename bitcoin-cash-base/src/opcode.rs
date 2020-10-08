@@ -3,8 +3,6 @@ use num_derive::*;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 
-use strum_macros::IntoStaticStr;
-
 use crate::data_type::{BitcoinBoolean, BitcoinByteArray, BitcoinInteger, DataType};
 
 lazy_static! {
