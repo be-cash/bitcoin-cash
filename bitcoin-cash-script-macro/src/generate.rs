@@ -231,6 +231,7 @@ impl GenerateScript {
                 }
             }
 
+            #[allow(clippy::redundant_clone)]
             #[allow(redundant_semicolon)]
             #(#attrs)*
             #vis #sig -> #crate_ident::TaggedScript<#input_struct<#generics_idents>> {
@@ -435,7 +436,7 @@ impl GenerateScript {
                                 ident
                             ),
                         ));
-                    } else if input_item.name != ident.to_string() {
+                    } else if ident != input_item.name {
                         return Err(Error::new(
                             ident.span(),
                             format!(

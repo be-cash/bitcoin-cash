@@ -361,7 +361,7 @@ fn parse_opcode_inputs(
                 inputs.push(ir::OpcodeInput::Ident(ident));
             }
             other_expr => {
-                inputs.push(ir::OpcodeInput::Expr(other_expr));
+                inputs.push(ir::OpcodeInput::Expr(Box::new(other_expr)));
             }
         }
     }

@@ -269,18 +269,18 @@ impl<'a> serde::ser::SerializeSeq for SeqCompound<'a> {
     {
         match value.serialize(&mut *self.ser)? {
             Data::BA(byte_array) => {
-                if self.parts.len() == 0 {
-                    self.expected_len.map(|len| {
+                if self.parts.is_empty() {
+                    if let Some(len) = self.expected_len {
                         self.parts = Vec::with_capacity(len);
-                    });
+                    }
                 }
                 self.parts.push(byte_array);
             }
             Data::Byte(byte) => {
-                if self.bytes.len() == 0 {
-                    self.expected_len.map(|len| {
+                if self.bytes.is_empty() {
+                    if let Some(len) = self.expected_len {
                         self.bytes = Vec::with_capacity(len);
-                    });
+                    }
                 }
                 self.bytes.push(byte);
             }
@@ -290,12 +290,12 @@ impl<'a> serde::ser::SerializeSeq for SeqCompound<'a> {
 
     #[inline]
     fn end(self) -> Result<Self::Ok> {
-        if self.bytes.len() > 0 {
-            assert!(self.parts.len() == 0);
+        if !self.bytes.is_empty() {
+            assert!(self.parts.is_empty());
             let byte_array = ByteArray::new("size", encode_var_int(self.bytes.len() as u64));
             return Ok(BA(byte_array.concat(self.bytes)));
         }
-        assert!(self.bytes.len() == 0);
+        assert!(self.bytes.is_empty());
         let mut byte_array = ByteArray::new("size", encode_var_int(self.parts.len() as u64));
         for element in self.parts {
             byte_array = byte_array.concat(element);

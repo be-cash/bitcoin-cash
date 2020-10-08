@@ -61,7 +61,7 @@ pub struct PushStmt {
 #[derive(Clone)]
 pub enum OpcodeInput {
     Ident(syn::Ident),
-    Expr(syn::Expr),
+    Expr(Box<syn::Expr>),
 }
 
 #[derive(Clone)]

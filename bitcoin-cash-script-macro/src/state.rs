@@ -133,7 +133,7 @@ impl VariantStates {
                 let next_depth = stack
                     .iter()
                     .rev()
-                    .position(|stack_item| stack_item.name == ident.to_string())
+                    .position(|stack_item| *ident == stack_item.name)
                     .ok_or_else(|| {
                         format!("Couldn't find {} in variant {}", ident, next_variant)
                     })?;

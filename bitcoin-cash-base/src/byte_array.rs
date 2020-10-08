@@ -398,6 +398,7 @@ impl ByteArray {
         ByteArray { name, ..self }
     }
 
+    #[allow(clippy::comparison_chain)]
     pub fn from_int(int: Integer, n_bytes: Integer) -> Result<Self, String> {
         if n_bytes <= 0 {
             return Err(format!("n_bytes={} not valid", n_bytes));

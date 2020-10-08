@@ -105,7 +105,7 @@ pub fn tx_to_json(tx: &UnhashedTx) -> Result<String, serde_json::Error> {
 
 pub fn json_to_tx(s: &str) -> Result<UnhashedTx, crate::error::Error> {
     let mut json_tx: JsonTx = serde_json::from_str(s)?;
-    Ok(json_tx.to_tx()?)
+    Ok(json_tx.make_tx()?)
 }
 
 impl JsonTx {
@@ -144,7 +144,7 @@ impl JsonTx {
         json_tx
     }
 
-    fn to_tx(&mut self) -> Result<UnhashedTx, error::Error> {
+    fn make_tx(&mut self) -> Result<UnhashedTx, error::Error> {
         let mut tx = UnhashedTx {
             version: self.version,
             inputs: Vec::with_capacity(self.inputs.len()),
@@ -376,6 +376,7 @@ impl JsonData {
         ))
     }
 
+    #[allow(clippy::ptr_arg)]
     fn insert_string(&mut self, cow: &Cow<'static, str>) -> usize {
         if let Some(&string_idx) = self.string_indices.get(cow) {
             string_idx
