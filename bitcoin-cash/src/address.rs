@@ -1,7 +1,7 @@
 use num_derive::*;
 use std::borrow::Cow;
 
-use crate::error::{Error, ErrorKind, Result};
+use crate::error::{Error, Result};
 use crate::{Hash160, Hashed, Pubkey, Script, SerializeExt};
 
 const CHARSET: &[u8] = b"qpzry9x8gf2tvdw0s3jn54khce6mua7l";
@@ -32,10 +32,13 @@ pub struct AddressPrefix<'a> {
     prefix_kind: Option<Prefix>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Error, Clone, Copy, Debug, PartialEq)]
 pub enum CashAddrError {
+    #[error("Invalid checksum")]
     InvalidChecksum,
+    #[error("Invalid Base32 letter {1} at index {0}")]
     InvalidBase32Letter(usize, u8),
+    #[error("Invalid address type {0}")]
     InvalidAddressType(u8),
 }
 
@@ -114,7 +117,7 @@ impl<'a> Address<'a> {
 
     pub fn from_cash_addr(cash_addr: &'a str) -> Result<Address<'a>> {
         let (hash, addr_type, prefix) = _from_cash_addr(cash_addr, Prefix::default().prefix_str())
-            .map_err(|err| -> Error { ErrorKind::InvalidCashAddr(err).into() })?;
+            .map_err(Error::InvalidCashAddr)?;
         let prefix_kind = Prefix::from_prefix_str(&prefix);
         Ok(Address {
             cash_addr: cash_addr.into(),

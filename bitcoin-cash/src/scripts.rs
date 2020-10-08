@@ -1,6 +1,9 @@
 use crate::{
-    Address, AddressType, ByteArray, Opcode::*, Pubkey, Script, SigHashFlags, Signatory,
-    SignatoryKindOne, TxOutput, TxPreimage, MAX_SIGNATURE_SIZE, TaggedScript, error::{ErrorKind, Result},
+    error::{Error, Result},
+    Address, AddressType, ByteArray,
+    Opcode::*,
+    Pubkey, Script, SigHashFlags, Signatory, SignatoryKindOne, TaggedScript, TxOutput, TxPreimage,
+    MAX_SIGNATURE_SIZE,
 };
 
 #[derive(Clone)]
@@ -48,7 +51,7 @@ impl Into<Script> for Address<'_> {
 impl Address<'_> {
     pub fn p2pkh_script(&self) -> Result<TaggedScript<P2PKHInputs>> {
         if self.addr_type() != AddressType::P2PKH {
-            return Err(ErrorKind::InvalidAddressType.into())
+            return Err(Error::InvalidAddressType);
         }
         Ok(ParamsAddress(self).p2pkh_script())
     }

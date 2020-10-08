@@ -1,5 +1,5 @@
 use crate::encoding_utils::read_var_int;
-use crate::error::{BitcoinCodeError, Error, ErrorKind, Result};
+use crate::error::{BitcoinCodeError, Error, Result};
 use byteorder::{LittleEndian, ReadBytesExt};
 use serde::de::Visitor;
 use std::io::{self, Read};
@@ -20,7 +20,7 @@ struct Access<'a, 'de: 'a> {
 
 impl serde::de::Error for Error {
     fn custom<T: std::fmt::Display>(msg: T) -> Self {
-        ErrorKind::Msg(format!("{}", msg)).into()
+        Error::Msg(msg.to_string())
     }
 }
 

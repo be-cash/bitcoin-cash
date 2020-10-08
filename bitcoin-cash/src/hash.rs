@@ -369,7 +369,7 @@ impl From<Hash160> for ByteArray {
 #[cfg(test)]
 mod tests {
     use super::{Hash160, Hashed, Result, Ripemd160, Sha1, Sha256, Sha256d};
-    use crate::error::ErrorKind;
+    use crate::error::Error;
     use hex_literal::hex;
 
     #[test]
@@ -378,8 +378,12 @@ mod tests {
         assert_eq!(Sha1::digest(b"").as_slice(), EMPTY_SHA1);
         assert_eq!(Sha1::digest(b""), Sha1::from_slice(&EMPTY_SHA1)?);
         assert_eq!(
-            ErrorKind::InvalidSize(20, 2).to_string(),
-            Sha1::from_slice(&[0, 0]).unwrap_err().kind().to_string(),
+            Error::InvalidSize {
+                expected: 20,
+                actual: 2,
+            }
+            .to_string(),
+            Sha1::from_slice(&[0, 0]).unwrap_err().to_string(),
         );
         Ok(())
     }
@@ -409,11 +413,12 @@ mod tests {
             Ripemd160::from_slice(&EMPTY_RIPEMD)?
         );
         assert_eq!(
-            ErrorKind::InvalidSize(20, 2).to_string(),
-            Ripemd160::from_slice(&[0, 0])
-                .unwrap_err()
-                .kind()
-                .to_string(),
+            Error::InvalidSize {
+                expected: 20,
+                actual: 2,
+            }
+            .to_string(),
+            Ripemd160::from_slice(&[0, 0]).unwrap_err().to_string(),
         );
         Ok(())
     }
@@ -447,8 +452,12 @@ mod tests {
         assert_eq!(Sha256::digest(b"").as_slice(), EMPTY_SHA256);
         assert_eq!(Sha256::digest(b""), Sha256::from_slice(&EMPTY_SHA256)?);
         assert_eq!(
-            ErrorKind::InvalidSize(32, 2).to_string(),
-            Sha256::from_slice(&[0, 0]).unwrap_err().kind().to_string(),
+            Error::InvalidSize {
+                expected: 32,
+                actual: 2,
+            }
+            .to_string(),
+            Sha256::from_slice(&[0, 0]).unwrap_err().to_string(),
         );
         Ok(())
     }
@@ -478,8 +487,12 @@ mod tests {
         assert_eq!(Sha256d::digest(b"").as_slice(), EMPTY_SHA256D);
         assert_eq!(Sha256d::digest(b""), Sha256d::from_slice(&EMPTY_SHA256D)?);
         assert_eq!(
-            ErrorKind::InvalidSize(32, 2).to_string(),
-            Sha256d::from_slice(&[0, 0]).unwrap_err().kind().to_string(),
+            Error::InvalidSize {
+                expected: 32,
+                actual: 2,
+            }
+            .to_string(),
+            Sha256d::from_slice(&[0, 0]).unwrap_err().to_string(),
         );
         Ok(())
     }
@@ -511,8 +524,12 @@ mod tests {
         assert_eq!(Hash160::digest(b"").as_slice(), EMPTY_HASH160);
         assert_eq!(Hash160::digest(b""), Hash160::from_slice(&EMPTY_HASH160)?);
         assert_eq!(
-            ErrorKind::InvalidSize(20, 2).to_string(),
-            Hash160::from_slice(&[0, 0]).unwrap_err().kind().to_string(),
+            Error::InvalidSize {
+                expected: 20,
+                actual: 2,
+            }
+            .to_string(),
+            Hash160::from_slice(&[0, 0]).unwrap_err().to_string(),
         );
         Ok(())
     }

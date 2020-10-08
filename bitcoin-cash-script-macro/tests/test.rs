@@ -75,7 +75,8 @@ fn test_catting() {
         OP_CAT;
     }
     assert_eq!(
-        Params.script()
+        Params
+            .script()
             .ops()
             .into_iter()
             .map(|op| &op.op)
@@ -637,12 +638,10 @@ fn test_lifetime() {
         x: &'a i32,
     };
     #[bitcoin_cash::script(Inputs)]
-    fn script(
-        params: Params<'_>,
-    ) {
+    fn script(params: Params<'_>) {
         let x = params.x;
         let y = 8;
         OP_ADD(x, y);
     }
-    Params { x: &5 } .script();
+    Params { x: &5 }.script();
 }

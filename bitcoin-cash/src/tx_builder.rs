@@ -1,6 +1,6 @@
 use crate::error::Result;
 use crate::{
-    error::ErrorKind, Ops, Script, SerializeExt, SigHashFlags, TaggedOp, TaggedScript, TxInput,
+    error::Error, Ops, Script, SerializeExt, SigHashFlags, TaggedOp, TaggedScript, TxInput,
     TxOutpoint, TxOutput, TxPreimage, UnhashedTx,
 };
 use std::any::Any;
@@ -280,10 +280,9 @@ impl<'b> TxBuilder<'b> {
             .map(|input| input.input.value)
             .sum::<u64>();
         if known_output_amount > total_input_amount {
-            return Err(ErrorKind::InsufficientInputAmount(
-                known_output_amount - total_input_amount,
-            )
-            .into());
+            return Err(Error::InsufficientInputAmount {
+                amount: known_output_amount - total_input_amount,
+            });
         }
         let mut total_leftover = total_input_amount - known_output_amount;
         let mut leftover_amounts = HashMap::new();
@@ -408,7 +407,7 @@ impl<'b> UnsignedTx<'b> {
     pub fn sign_input_dyn(&mut self, input_idx: usize, sigs: Box<dyn Any>) -> Result<()> {
         let input = &mut self.inputs[input_idx];
         if input.is_some() {
-            return Err(ErrorKind::InputAlreadySigned(input_idx).into());
+            return Err(Error::InputAlreadySigned { input_idx });
         }
         let builder_input = &self.builder.inputs[input_idx];
         let preimage = &self.tx_preimages[input_idx];

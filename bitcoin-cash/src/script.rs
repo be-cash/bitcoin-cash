@@ -211,10 +211,11 @@ pub fn deserialize_ops(bytes: &[u8]) -> error::Result<Vec<Op>> {
                 cur.read_u32::<LittleEndian>()? as usize
             }
             opcode => {
-                let opcode = num::FromPrimitive::from_u8(opcode)
-                    .ok_or(())
-                    .or_else(|()| ScriptSerializeError::UnknownOpcode.into_err())?;
-                ops.push(Op::Code(opcode));
+                let op = match num::FromPrimitive::from_u8(opcode) {
+                    Some(opcode) => Op::Code(opcode),
+                    None => Op::Invalid(opcode),
+                };
+                ops.push(op);
                 continue;
             }
         };

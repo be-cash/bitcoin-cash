@@ -1,4 +1,4 @@
-use crate::error::{BitcoinCodeError, Error, ErrorKind, Result};
+use crate::error::{BitcoinCodeError, Error, Result};
 use crate::{encoding_utils::encode_var_int, ByteArray};
 use lazy_static::lazy_static;
 use std::sync::Mutex;
@@ -56,7 +56,7 @@ impl From<Data> for ByteArray {
 
 impl serde::ser::Error for Error {
     fn custom<T: std::fmt::Display>(msg: T) -> Self {
-        ErrorKind::Msg(msg.to_string()).into()
+        Error::Msg(msg.to_string())
     }
 }
 

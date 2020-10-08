@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate thiserror;
+
 mod address;
 mod deserializer;
 mod ecc;

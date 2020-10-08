@@ -1,4 +1,4 @@
-use crate::error;
+use crate::error::Error;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io;
 
@@ -93,12 +93,12 @@ pub fn encode_bool(b: bool) -> Vec<u8> {
     }
 }
 
-fn try_shl(a: i32, b: u32, vec: &[u8]) -> Result<i32, error::Error> {
+fn try_shl(a: i32, b: u32, vec: &[u8]) -> Result<i32, Error> {
     a.checked_shl(b)
-        .ok_or_else(|| error::ErrorKind::Msg(format!("Overflow for {}", hex::encode(vec))).into())
+        .ok_or_else(|| Error::Msg(format!("Overflow for {}", hex::encode(vec))))
 }
 
-pub fn vec_to_int(vec: &[u8]) -> Result<i32, error::Error> {
+pub fn vec_to_int(vec: &[u8]) -> Result<i32, Error> {
     if vec.is_empty() {
         return Ok(0);
     }

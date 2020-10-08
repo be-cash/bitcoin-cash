@@ -16,6 +16,17 @@ pub enum SlpTxType {
     COMMIT,
 }
 
+pub struct SlpGenesisParams<'a> {
+    slp_token_type: SlpTokenType,
+    token_ticker: &'a str,
+    token_name: &'a str,
+    token_document_url: &'a str,
+    token_document_hash: &'a str,
+    decimals: u8,
+    mint_baton_vout: Option<u8>,
+    initial_token_mint_quantity: u64,
+}
+
 pub fn slp_amount_ops<'a>(output_amounts: impl IntoIterator<Item = &'a u64>) -> Vec<Op> {
     output_amounts
         .into_iter()
@@ -30,40 +41,35 @@ pub fn slp_amount_ops<'a>(output_amounts: impl IntoIterator<Item = &'a u64>) -> 
         .collect()
 }
 
-pub fn slp_genesis_output(
-    slp_token_type: SlpTokenType,
-    token_ticker: &str,
-    token_name: &str,
-    token_document_url: &str,
-    token_document_hash: &str,
-    decimals: u8,
-    mint_baton_vout: Option<u8>,
-    initial_token_mint_quantity: u64,
-) -> TxOutput {
+pub fn slp_genesis_output(params: SlpGenesisParams<'_>) -> TxOutput {
     let byte_arrays = vec![
         ByteArray::from_slice("lokad_id", b"SLP\0"),
-        ByteArray::new("token_type", vec![slp_token_type as u8]),
+        ByteArray::new("token_type", vec![params.slp_token_type as u8]),
         ByteArray::new(
             "transaction_type",
             SlpTxType::GENESIS.to_string().into_bytes(),
         ),
-        ByteArray::new("token_ticker", token_ticker.as_bytes().to_vec()),
-        ByteArray::new("token_name", token_name.as_bytes().to_vec()),
-        ByteArray::new("token_document_url", token_document_url.as_bytes().to_vec()),
+        ByteArray::new("token_ticker", params.token_ticker.as_bytes().to_vec()),
+        ByteArray::new("token_name", params.token_name.as_bytes().to_vec()),
+        ByteArray::new(
+            "token_document_url",
+            params.token_document_url.as_bytes().to_vec(),
+        ),
         ByteArray::new(
             "token_document_hash",
-            token_document_hash.as_bytes().to_vec(),
+            params.token_document_hash.as_bytes().to_vec(),
         ),
-        ByteArray::new("decimals", decimals.to_be_bytes().as_ref()),
+        ByteArray::new("decimals", params.decimals.to_be_bytes().as_ref()),
         ByteArray::new(
             "mint_baton_vout",
-            mint_baton_vout
+            params
+                .mint_baton_vout
                 .map(|vout| vout.to_be_bytes().to_vec())
-                .unwrap_or(vec![]),
+                .unwrap_or_else(Vec::new),
         ),
         ByteArray::new(
             "initial_token_mint_quantity",
-            initial_token_mint_quantity.to_be_bytes().as_ref(),
+            params.initial_token_mint_quantity.to_be_bytes().as_ref(),
         ),
     ];
     let mut ops = vec![Op::Code(Opcode::OP_RETURN)];

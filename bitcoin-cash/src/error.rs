@@ -1,76 +1,105 @@
 use crate::address::CashAddrError;
-use error_chain::error_chain;
+use crate::serialize_json::JsonError;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Error, Clone, Copy, Debug, PartialEq)]
 pub enum BitcoinCodeError {
+    #[error("Deserialize any not supported")]
     DeserializeAnyNotSupported,
+
+    #[error("Invalid bool encoding: {0}")]
     InvalidBoolEncoding(u8),
+
+    #[error("Leftover bytes")]
     LeftoverBytes,
+
+    #[error("Datatype {0} not supported")]
     DataTypeNotSupported(&'static str),
+
+    #[error("Method {0} not supported")]
     MethodNotSupported(&'static str),
-    SequenceMustHaveLength,
 }
 
 impl BitcoinCodeError {
     pub fn into_err<T>(self) -> Result<T> {
-        Err(ErrorKind::BitcoinCodeDeserialize(self).into())
+        Err(Error::BitcoinCodeDeserialize(self))
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Error, Clone, Debug, PartialEq)]
 pub enum ScriptSerializeError {
+    #[error("Push too large")]
     PushTooLarge,
+    #[error("Invalid integer")]
     InvalidInteger,
-    UnknownOpcode,
 }
 
 impl ScriptSerializeError {
     pub fn into_err<T>(self) -> Result<T> {
-        Err(ErrorKind::ScriptSerialize(self).into())
+        Err(Error::ScriptSerialize(self))
     }
 }
 
-error_chain! {
-    links {
-        Json(
-            crate::serialize_json::error::Error,
-            crate::serialize_json::error::ErrorKind
-        );
-    }
+pub type Result<T> = std::result::Result<T, Error>;
 
-    foreign_links {
-        FromHex(hex::FromHexError);
-        Io(std::io::Error);
-        Utf8(std::str::Utf8Error);
-        SerdeJson(serde_json::Error);
-    }
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("Invalid CashAddr")]
+    InvalidCashAddr(#[from] CashAddrError),
 
-    errors {
-        InvalidSize(expected: usize, actual: usize) {
-            description("invalid size")
-            display("invalid size, expected {}, got {}", expected, actual)
-        }
+    #[error("Invalid hex: {0}")]
+    FromHex(#[from] hex::FromHexError),
 
-        InvalidCashAddr(err: CashAddrError) {}
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
 
-        BitcoinCodeDeserialize(err: BitcoinCodeError) {}
+    #[error("Utf8 error: {0}")]
+    Utf8(#[from] std::str::Utf8Error),
 
-        ScriptSerialize(err: ScriptSerializeError) {}
+    #[error("Serde JSON error: {0}")]
+    SerdeJson(#[from] serde_json::Error),
 
-        InsufficientInputAmount(amount: u64) {}
+    #[error("JSON error: {0}")]
+    Json(#[from] JsonError),
 
-        InvalidSignatureFormat {}
+    #[error("Invalid size: expected {expected}, got {actual}")]
+    InvalidSize { expected: usize, actual: usize },
 
-        InvalidPubkey {}
+    #[error("Bitcoin code error: {0}")]
+    BitcoinCodeDeserialize(#[from] BitcoinCodeError),
 
-        InputAlreadySigned(input_idx: usize) {}
+    #[error("Script serialize error: {0}")]
+    ScriptSerialize(#[from] ScriptSerializeError),
 
-        InvalidAddressType {}
+    #[error("Script serialize error: {amount}")]
+    InsufficientInputAmount { amount: u64 },
+
+    #[error("Invalid signature format")]
+    InvalidSignatureFormat,
+
+    #[error("Invalid invalid pubkey")]
+    InvalidPubkey,
+
+    #[error("Input {input_idx} already spent")]
+    InputAlreadySigned { input_idx: usize },
+
+    #[error("Invalid address type")]
+    InvalidAddressType,
+
+    #[error("{0}")]
+    Msg(String),
+}
+
+impl From<String> for Error {
+    fn from(msg: String) -> Self {
+        Error::Msg(msg)
     }
 }
 
 impl From<bitcoin_cash_base::FromSliceError> for Error {
     fn from(error: bitcoin_cash_base::FromSliceError) -> Self {
-        ErrorKind::InvalidSize(error.expected, error.actual).into()
+        Error::InvalidSize {
+            expected: error.expected,
+            actual: error.actual,
+        }
     }
 }

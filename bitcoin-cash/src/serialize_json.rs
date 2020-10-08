@@ -82,21 +82,20 @@ struct JsonTx {
     lock_time: u32,
 }
 
-pub mod error {
-    use error_chain::error_chain;
-    error_chain! {
-        foreign_links {
-            DecodeError(base64::DecodeError);
-        }
-        errors {
-            InvalidDataIdx(idx: usize) {}
-            InvalidStringIdx(idx: usize) {}
-            InvalidHash {}
-        }
-    }
-}
+#[derive(Debug, Error)]
+pub enum JsonError {
+    #[error("Decode error: {0}")]
+    DecodeError(#[from] base64::DecodeError),
 
-use error::ResultExt;
+    #[error("Invalid data_idx: {idx}")]
+    InvalidDataIdx { idx: usize },
+
+    #[error("Invalid data_idx: {idx}")]
+    InvalidStringIdx { idx: usize },
+
+    #[error("Invalid hash")]
+    InvalidHash,
+}
 
 pub fn tx_to_json(tx: &UnhashedTx) -> Result<String, serde_json::Error> {
     let json_tx = JsonTx::from_tx(tx);
@@ -144,7 +143,7 @@ impl JsonTx {
         json_tx
     }
 
-    fn make_tx(&mut self) -> Result<UnhashedTx, error::Error> {
+    fn make_tx(&mut self) -> Result<UnhashedTx, JsonError> {
         let mut tx = UnhashedTx {
             version: self.version,
             inputs: Vec::with_capacity(self.inputs.len()),
@@ -161,7 +160,7 @@ impl JsonTx {
             let input = TxInput {
                 prev_out: TxOutpoint {
                     tx_hash: Sha256d::from_byte_array(data.get_byte_array(input.prev_out_hash)?)
-                        .chain_err(|| error::ErrorKind::InvalidHash)?,
+                        .map_err(|_| JsonError::InvalidHash)?,
                     vout: input.prev_out_vout,
                 },
                 sequence: input.sequence,
@@ -250,7 +249,7 @@ impl JsonTaggedOp {
         }
     }
 
-    fn to_tagged_op(&self, data: &mut JsonData) -> Result<TaggedOp, error::Error> {
+    fn to_tagged_op(&self, data: &mut JsonData) -> Result<TaggedOp, JsonError> {
         let op = match self.op {
             JsonOp::Code(code) => {
                 let opcode: Option<Opcode> = num::FromPrimitive::from_u8(code);
@@ -340,8 +339,7 @@ impl JsonData {
         }
     }
 
-    fn get_byte_array(&mut self, byte_array_idx: usize) -> Result<ByteArray, error::Error> {
-        use error::ErrorKind::*;
+    fn get_byte_array(&mut self, byte_array_idx: usize) -> Result<ByteArray, JsonError> {
         let preimage = self.byte_arrays[byte_array_idx]
             .preimage_indices
             .clone()
@@ -359,7 +357,7 @@ impl JsonData {
             let data_b64 = self
                 .data_b64
                 .get(json.data_idx)
-                .ok_or(InvalidDataIdx(json.data_idx))?;
+                .ok_or(JsonError::InvalidDataIdx { idx: json.data_idx })?;
             let data = base64::decode(data_b64)?.into();
             self.data_indices.insert(Arc::clone(&data), json.data_idx);
             data
@@ -400,10 +398,10 @@ impl JsonData {
         }
     }
 
-    fn get_string(&self, string_idx: usize) -> Result<&Cow<'static, str>, error::Error> {
+    fn get_string(&self, string_idx: usize) -> Result<&Cow<'static, str>, JsonError> {
         self.strings
             .get(string_idx)
-            .ok_or_else(|| error::ErrorKind::InvalidStringIdx(string_idx).into())
+            .ok_or_else(|| JsonError::InvalidStringIdx { idx: string_idx })
     }
 }
 
