@@ -151,9 +151,11 @@ impl GenerateScript {
             }));
         let script_ident = &self.script_ident;
 
+        let struct_enum_docs = &script.docs.input_struct;
         let (input_struct_enum, impl_ops) = if script.script_variants.is_empty() {
             (
                 quote! {
+                    #( #[doc = #struct_enum_docs] )*
                     #vis struct #input_struct #generics {
                         #(#struct_fields),*
                     }
@@ -167,7 +169,15 @@ impl GenerateScript {
         } else {
             let mut enum_variants = Vec::with_capacity(script.script_variants.len());
             let mut match_ops = Vec::with_capacity(script.script_variants.len());
-            for (variant_name, variant_fields) in enum_variant_fields {
+            for variant in &script.script_variants {
+                let variant_name = &variant.name;
+                let variant_fields = &enum_variant_fields[variant_name];
+                let variant_docs = script
+                    .docs
+                    .variants
+                    .get(&variant_name)
+                    .map(Vec::as_slice)
+                    .unwrap_or(&[]);
                 let variant_fields_quote = variant_fields.iter().map(|(ident, ty, _, attrs)| {
                     quote! {
                         #(#attrs)*
@@ -175,6 +185,7 @@ impl GenerateScript {
                     }
                 });
                 enum_variants.push(quote! {
+                    #( #[doc = #variant_docs] )*
                     #variant_name {
                         #(#variant_fields_quote),*
                     }
@@ -209,6 +220,7 @@ impl GenerateScript {
             }
             (
                 quote! {
+                    #( #[doc = #struct_enum_docs] )*
                     #vis enum #input_struct #generics {
                         #(#enum_variants),*
                     }

@@ -1,5 +1,6 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
+use std::collections::HashMap;
 use syn::spanned::Spanned;
 
 use crate::ir;
@@ -17,6 +18,7 @@ pub fn parse_script(
             "A script's return type should be empty (no `->`)",
         ));
     }
+    let docs = parse_docs(&func.attrs, &input_struct, &script_variants);
     Ok(ir::Script {
         input_struct,
         crate_ident,
@@ -26,6 +28,7 @@ pub fn parse_script(
         inputs: parse_script_inputs(func.sig.span(), func.sig.inputs.iter())?,
         sig: func.sig,
         stmts: parse_stmts(func.block.stmts)?,
+        docs,
     })
 }
 
@@ -99,6 +102,62 @@ fn parse_attrs(
         }
     }
     Ok((input_struct, crate_name, variants))
+}
+
+fn parse_docs(
+    attrs: &[syn::Attribute],
+    input_struct: &syn::Ident,
+    variants: &[ir::ScriptVariant],
+) -> ir::ScriptDocs {
+    let mut input_struct_docs = Vec::new();
+    let mut variant_docs = HashMap::new();
+    let attrs = attrs.into_iter();
+    let mut found_input_struct = false;
+    let mut current_variant_name = None;
+    'attr: for attr in attrs {
+        if let Some(doc) = parse_doc_attribute(attr) {
+            let doc_trimmed = doc.trim();
+            let prefix = "# ";
+            if doc_trimmed.starts_with(prefix) && *input_struct == doc_trimmed[prefix.len()..] {
+                found_input_struct = true;
+                continue;
+            }
+            let prefix = "## ";
+            if found_input_struct && doc_trimmed.starts_with(prefix) {
+                for variant in variants {
+                    if variant.name == doc_trimmed[prefix.len()..] {
+                        current_variant_name = Some(&variant.name);
+                        variant_docs.insert(variant.name.clone(), Vec::new());
+                        continue 'attr;
+                    }
+                }
+            }
+            if let Some(current_variant_name) = current_variant_name {
+                variant_docs
+                    .get_mut(current_variant_name)
+                    .unwrap()
+                    .push(doc);
+            } else if found_input_struct {
+                input_struct_docs.push(doc);
+            }
+        }
+    }
+    ir::ScriptDocs {
+        input_struct: input_struct_docs,
+        variants: variant_docs,
+    }
+}
+
+fn parse_doc_attribute(attr: &syn::Attribute) -> Option<String> {
+    let meta = attr.parse_meta().ok()?;
+    let meta = match meta {
+        syn::Meta::NameValue(meta) => meta,
+        _ => return None,
+    };
+    if single_path(&meta.path).ok()? != "doc" {
+        return None;
+    }
+    parse_string_lit(&meta.lit)
 }
 
 fn parse_string_lit(lit: &syn::Lit) -> Option<String> {

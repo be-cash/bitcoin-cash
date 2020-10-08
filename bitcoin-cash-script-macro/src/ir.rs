@@ -1,5 +1,6 @@
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
+use std::collections::HashMap;
 
 pub struct Script {
     pub input_struct: syn::Ident,
@@ -10,6 +11,12 @@ pub struct Script {
     pub sig: syn::Signature,
     pub inputs: Vec<ScriptInput>,
     pub stmts: Vec<TaggedStmt>,
+    pub docs: ScriptDocs,
+}
+
+pub struct ScriptDocs {
+    pub input_struct: Vec<String>,
+    pub variants: HashMap<syn::Ident, Vec<String>>,
 }
 
 pub struct ScriptVariant {
