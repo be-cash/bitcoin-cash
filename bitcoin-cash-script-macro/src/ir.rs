@@ -9,6 +9,7 @@ pub struct Script {
     pub attrs: Vec<syn::Attribute>,
     pub vis: syn::Visibility,
     pub sig: syn::Signature,
+    pub param_type: Box<syn::Type>,
     pub inputs: Vec<ScriptInput>,
     pub stmts: Vec<TaggedStmt>,
     pub docs: ScriptDocs,

@@ -7,6 +7,9 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
+pub const DEFAULT_FEE_PER_KB: u64 = 1000;
+pub const DUST_AMOUNT: u64 = 546;
+
 #[derive(PartialEq, Debug, Clone)]
 pub struct UnsignedTxInput {
     pub prev_out: TxOutpoint,
@@ -17,7 +20,7 @@ pub struct UnsignedTxInput {
 struct TxBuilderInput<'b> {
     input: UnsignedTxInput,
     func_script: Box<
-        dyn Fn(&[TxPreimage], &TxBuilder, Option<Box<dyn Any>>, &Script, &[TxOutput]) -> Script
+        dyn Fn(&[TxPreimage], Option<usize>, Option<Box<dyn Any>>, &Script, &[TxOutput]) -> Script
             + 'b
             + Sync
             + Send,
@@ -31,7 +34,6 @@ struct TxBuilderInput<'b> {
 enum TxBuilderOutput {
     KnownValue(TxOutput),
     Leftover {
-        fee_per_kb: u64,
         lower_bound: u64,
         upper_bound: u64,
         precedence: i32,
@@ -44,6 +46,7 @@ pub struct TxBuilder<'b> {
     inputs: Vec<TxBuilderInput<'b>>,
     outputs: Vec<TxBuilderOutput>,
     lock_time: u32,
+    fee_per_kb: u64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -57,6 +60,7 @@ pub struct UnsignedTx<'b> {
     outputs: Vec<TxOutput>,
     tx_preimages: Vec<Vec<TxPreimage>>,
     inputs: Vec<Option<TxInput>>,
+    estimated_size: usize,
 }
 
 struct TxBuilderPreimages<'b> {
@@ -77,15 +81,27 @@ pub trait ToPreimages {
     fn lock_time(&self) -> u32;
 }
 
+pub trait SignatoryKind {
+    type SigHashFlags;
+    type TxPreimages: ?Sized;
+
+    fn sig_hash_flags_vec(sig_hash_flags: Self::SigHashFlags) -> Vec<SigHashFlags>;
+    fn make_tx_preimages(tx_preimages: &[TxPreimage]) -> &Self::TxPreimages;
+}
+
+pub struct SignatoryKindOne;
+pub struct SignatoryKindMultiple;
+
 pub trait Signatory {
     type Script: Ops;
     type Signatures: 'static;
-    fn sig_hash_flags(&self) -> Vec<SigHashFlags>;
+    type Kind: SignatoryKind;
+    fn sig_hash_flags(&self) -> <Self::Kind as SignatoryKind>::SigHashFlags;
     fn placeholder_signatures(&self) -> Self::Signatures;
     fn build_script(
         &self,
-        tx_preimages: &[TxPreimage],
-        unsigned_tx: &TxBuilder,
+        tx_preimages: &<Self::Kind as SignatoryKind>::TxPreimages,
+        estimated_size: Option<usize>,
         sigs: Self::Signatures,
         lock_script: &Script,
         tx_outputs: &[TxOutput],
@@ -102,6 +118,7 @@ impl<'b> TxBuilder<'b> {
             inputs: Vec::new(),
             outputs: Vec::new(),
             lock_time: 0,
+            fee_per_kb: DEFAULT_FEE_PER_KB,
         }
     }
 
@@ -111,6 +128,17 @@ impl<'b> TxBuilder<'b> {
             inputs: Vec::new(),
             outputs: Vec::new(),
             lock_time,
+            fee_per_kb: DEFAULT_FEE_PER_KB,
+        }
+    }
+
+    pub fn new_with_fee(version: i32, lock_time: u32, fee_per_kb: u64) -> Self {
+        TxBuilder {
+            version,
+            inputs: Vec::new(),
+            outputs: Vec::new(),
+            lock_time,
+            fee_per_kb,
         }
     }
 
@@ -121,9 +149,10 @@ impl<'b> TxBuilder<'b> {
         input_script_builder: S,
     ) -> InputReference<S> {
         let sig_hash_flags = input_script_builder.sig_hash_flags();
+        let sig_hash_flags = <S::Kind as SignatoryKind>::sig_hash_flags_vec(sig_hash_flags);
         let is_p2sh = input_script_builder.is_p2sh();
-        let func = move |tx_preimage: &[TxPreimage],
-                         unsigned_tx: &TxBuilder,
+        let func = move |tx_preimages: &[TxPreimage],
+                         estimated_size: Option<usize>,
                          sigs: Option<Box<dyn Any>>,
                          lock_script: &Script,
                          tx_outputs: &[TxOutput]| {
@@ -131,8 +160,9 @@ impl<'b> TxBuilder<'b> {
                 Some(sigs) => *sigs.downcast::<S::Signatures>().expect("Incompatible sigs"),
                 None => input_script_builder.placeholder_signatures(),
             };
+            let tx_preimages = <S::Kind as SignatoryKind>::make_tx_preimages(tx_preimages);
             let mut ops: Vec<_> = input_script_builder
-                .build_script(tx_preimage, unsigned_tx, sigs, lock_script, tx_outputs)
+                .build_script(tx_preimages, estimated_size, sigs, lock_script, tx_outputs)
                 .ops()
                 .into();
             if input_script_builder.is_p2sh() {
@@ -165,16 +195,23 @@ impl<'b> TxBuilder<'b> {
         }
     }
 
-    pub fn add_leftover_output(
+    pub fn add_leftover_output(&mut self, script: Script) {
+        self.outputs.push(TxBuilderOutput::Leftover {
+            lower_bound: DUST_AMOUNT,
+            upper_bound: std::u64::MAX,
+            script,
+            precedence: 0,
+        });
+    }
+
+    pub fn add_leftover_output_bounded(
         &mut self,
-        fee_per_kb: u64,
         lower_bound: u64,
         upper_bound: u64,
         precedence: i32,
         script: Script,
     ) {
         self.outputs.push(TxBuilderOutput::Leftover {
-            fee_per_kb,
             lower_bound,
             upper_bound,
             script,
@@ -190,7 +227,7 @@ impl<'b> TxBuilder<'b> {
         self.lock_time
     }
 
-    pub fn estimate_size(&self, outputs: Vec<TxOutput>) -> usize {
+    fn estimate_size(&self, outputs: Vec<TxOutput>) -> usize {
         let mut inputs = Vec::with_capacity(self.inputs.len());
         for input in &self.inputs {
             let n_sigs = input.sig_hash_flags.len();
@@ -198,7 +235,7 @@ impl<'b> TxBuilder<'b> {
             let preimages = vec![TxPreimage::empty_with_script(&lock_script); n_sigs];
             inputs.push(TxInput {
                 prev_out: input.input.prev_out.clone(),
-                script: (input.func_script)(&preimages, self, None, &lock_script, &outputs),
+                script: (input.func_script)(&preimages, None, None, &lock_script, &outputs),
                 sequence: input.input.sequence,
                 lock_script: None,
                 value: None,
@@ -260,9 +297,9 @@ impl<'b> TxBuilder<'b> {
             })
             .collect::<Vec<_>>();
         leftover_precedence.sort_by(|(_, a), (_, b)| a.cmp(b));
+        let mut estimated_size = None;
         for (idx, _) in leftover_precedence {
             if let TxBuilderOutput::Leftover {
-                fee_per_kb,
                 lower_bound,
                 upper_bound,
                 ..
@@ -273,8 +310,8 @@ impl<'b> TxBuilder<'b> {
                 }
                 let max_leftover = total_leftover.min(upper_bound);
                 leftover_amounts.insert(idx, max_leftover);
-                let new_size = self.estimate_size(self.make_outputs(&leftover_amounts)) as u64;
-                let fee = new_size * fee_per_kb / 1000;
+                let new_size = self.estimate_size(self.make_outputs(&leftover_amounts));
+                let fee = new_size as u64 * self.fee_per_kb / 1000;
                 if fee <= total_leftover {
                     let leftover = (total_leftover - fee).min(upper_bound);
                     if leftover <= lower_bound {
@@ -283,17 +320,22 @@ impl<'b> TxBuilder<'b> {
                     }
                     leftover_amounts.insert(idx, leftover);
                     total_leftover -= leftover;
+                    estimated_size = Some(new_size);
                 } else {
                     leftover_amounts.remove(&idx);
                 }
             }
         }
+        let estimated_size = match estimated_size {
+            Some(estimated_size) => estimated_size,
+            None => self.estimate_size(self.make_outputs(&leftover_amounts)),
+        };
         let outputs = self.make_outputs(&leftover_amounts);
         let tx_preimages = TxPreimage::build_preimages(&TxBuilderPreimages {
             builder: &self,
             outputs: &outputs,
         });
-        Ok(UnsignedTx::new(outputs, self, tx_preimages))
+        Ok(UnsignedTx::new(outputs, self, tx_preimages, estimated_size))
     }
 }
 
@@ -340,45 +382,42 @@ impl ToPreimages for TxBuilderPreimages<'_> {
 }
 
 impl<'b> UnsignedTx<'b> {
-    pub fn new(
+    fn new(
         outputs: Vec<TxOutput>,
         builder: TxBuilder<'b>,
         tx_preimages: Vec<Vec<TxPreimage>>,
+        estimated_size: usize,
     ) -> Self {
         UnsignedTx {
             inputs: vec![None; builder.inputs.len()],
             builder,
             outputs,
             tx_preimages,
+            estimated_size,
         }
-    }
-
-    pub fn sign_input_with<S: Signatory>(
-        &mut self,
-        input_token: InputReference<S>,
-        make_sigs: impl FnOnce(&[TxPreimage]) -> S::Signatures,
-    ) {
-        let sigs = make_sigs(&self.tx_preimages[input_token.input_idx]);
-        self.sign_input(input_token, sigs)
     }
 
     pub fn sign_input<S: Signatory>(
         &mut self,
-        input_token: InputReference<S>,
+        input_ref: InputReference<S>,
         sigs: S::Signatures,
-    ) {
-        let input_ref = &mut self.inputs[input_token.input_idx];
-        if input_ref.is_some() {
-            panic!("Input already signed");
+    ) -> Result<()> {
+        self.sign_input_dyn(input_ref.input_idx, Box::new(sigs))
+    }
+
+    pub fn sign_input_dyn(&mut self, input_idx: usize, sigs: Box<dyn Any>) -> Result<()> {
+        let input = &mut self.inputs[input_idx];
+        if input.is_some() {
+            return Err(ErrorKind::InputAlreadySigned(input_idx).into());
         }
-        let builder_input = &self.builder.inputs[input_token.input_idx];
-        let preimage = &self.tx_preimages[input_token.input_idx];
-        *input_ref = Some(TxInput {
+        let builder_input = &self.builder.inputs[input_idx];
+        let preimage = &self.tx_preimages[input_idx];
+        *input = Some(TxInput {
             prev_out: builder_input.input.prev_out.clone(),
             script: (builder_input.func_script)(
                 preimage,
-                &self.builder,
-                Some(Box::new(sigs)),
+                Some(self.estimated_size),
+                Some(sigs),
                 &Script::new(builder_input.lock_script.ops().to_vec()),
                 &self.outputs,
             ),
@@ -387,6 +426,14 @@ impl<'b> UnsignedTx<'b> {
             value: Some(builder_input.input.value),
             is_p2sh: Some(builder_input.is_p2sh),
         });
+        Ok(())
+    }
+
+    pub fn input_preimages<S: Signatory>(
+        &self,
+        input_token: InputReference<S>,
+    ) -> &<S::Kind as SignatoryKind>::TxPreimages {
+        <S::Kind as SignatoryKind>::make_tx_preimages(&self.tx_preimages[input_token.input_idx])
     }
 
     pub fn preimages(&self) -> &[Vec<TxPreimage>] {
@@ -419,5 +466,33 @@ impl<T> InputReference<T> {
 
     pub fn input_idx(&self) -> usize {
         self.input_idx
+    }
+}
+
+impl SignatoryKind for SignatoryKindOne {
+    type SigHashFlags = SigHashFlags;
+
+    type TxPreimages = TxPreimage;
+
+    fn sig_hash_flags_vec(sig_hash_flags: Self::SigHashFlags) -> Vec<SigHashFlags> {
+        vec![sig_hash_flags]
+    }
+
+    fn make_tx_preimages(tx_preimages: &[TxPreimage]) -> &Self::TxPreimages {
+        &tx_preimages[0]
+    }
+}
+
+impl SignatoryKind for SignatoryKindMultiple {
+    type SigHashFlags = Vec<SigHashFlags>;
+
+    type TxPreimages = [TxPreimage];
+
+    fn sig_hash_flags_vec(sig_hash_flags: Self::SigHashFlags) -> Vec<SigHashFlags> {
+        sig_hash_flags
+    }
+
+    fn make_tx_preimages(tx_preimages: &[TxPreimage]) -> &Self::TxPreimages {
+        tx_preimages
     }
 }

@@ -19,13 +19,15 @@ pub fn parse_script(
         ));
     }
     let docs = parse_docs(&func.attrs, &input_struct, &script_variants);
+    let (inputs, param_type) = parse_script_inputs(func.sig.span(), func.sig.inputs.iter())?;
     Ok(ir::Script {
         input_struct,
         crate_ident,
         script_variants,
         attrs: func.attrs,
         vis: func.vis,
-        inputs: parse_script_inputs(func.sig.span(), func.sig.inputs.iter())?,
+        param_type,
+        inputs,
         sig: func.sig,
         stmts: parse_stmts(func.block.stmts)?,
         docs,
@@ -35,9 +37,10 @@ pub fn parse_script(
 fn parse_script_inputs<'a>(
     sig_span: Span,
     mut inputs: impl Iterator<Item = &'a syn::FnArg>,
-) -> Result<Vec<ir::ScriptInput>, syn::Error> {
-    if let Some(first) = inputs.next() {
-        if let syn::FnArg::Typed(_) = first {
+) -> Result<(Vec<ir::ScriptInput>, Box<syn::Type>), syn::Error> {
+    let param_type = if let Some(first) = inputs.next() {
+        if let syn::FnArg::Typed(param_type) = first {
+            param_type.ty.clone()
         } else {
             return Err(syn::Error::new(sig_span, "A script cannot be a method; the first parameter must contain the necessary constructor parameters."));
         }
@@ -46,16 +49,19 @@ fn parse_script_inputs<'a>(
             sig_span,
             "A script must take at least one parameter, the constructor parameters.",
         ));
-    }
-    inputs
-        .map(|input| {
-            if let syn::FnArg::Typed(param) = input {
-                parse_script_input(sig_span, param)
-            } else {
-                Err(syn::Error::new(sig_span, "Cannot have self parameters"))
-            }
-        })
-        .collect()
+    };
+    Ok((
+        inputs
+            .map(|input| {
+                if let syn::FnArg::Typed(param) = input {
+                    parse_script_input(sig_span, param)
+                } else {
+                    Err(syn::Error::new(sig_span, "Cannot have self parameters"))
+                }
+            })
+            .collect::<Result<_, _>>()?,
+        param_type,
+    ))
 }
 
 fn single_path(path: &syn::Path) -> Result<syn::Ident, ()> {

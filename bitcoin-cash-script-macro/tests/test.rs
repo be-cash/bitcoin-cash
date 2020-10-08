@@ -3,9 +3,11 @@ use pretty_assertions::assert_eq;
 
 #[test]
 fn test_adding() {
-    let line = line!() + 2;
+    let line = line!() + 4;
+    struct Params;
+
     #[bitcoin_cash::script(Inputs)]
-    fn script(_: ()) {
+    fn script(_: Params) {
         6;
         5;
         OP_ADD;
@@ -13,7 +15,7 @@ fn test_adding() {
     Inputs {};
     let file_name = file!();
     assert_eq!(
-        script(()).ops().as_ref(),
+        Params.script().ops().as_ref(),
         &[
             TaggedOp {
                 src_code: vec![
@@ -63,8 +65,9 @@ fn test_adding() {
 
 #[test]
 fn test_catting() {
+    struct Params;
     #[bitcoin_cash::script(Inputs)]
-    fn script(_: ()) {
+    fn script(_: Params) {
         b"A";
         b"B";
         OP_TUCK;
@@ -72,7 +75,7 @@ fn test_catting() {
         OP_CAT;
     }
     assert_eq!(
-        script(())
+        Params.script()
             .ops()
             .into_iter()
             .map(|op| &op.op)
@@ -90,12 +93,13 @@ fn test_catting() {
 
 #[test]
 fn test_inputs() {
+    struct Params;
     #[bitcoin_cash::script(Inputs)]
-    fn script(_: (), a: [u8; 1], b: [u8; 1]) {
+    fn script(_: Params, a: [u8; 1], b: [u8; 1]) {
         OP_CAT;
     }
     assert_eq!(
-        script(()).script_ops().collect::<Vec<_>>(),
+        Params.script().script_ops().collect::<Vec<_>>(),
         vec![&Op::Code(OP_CAT)]
     );
     assert_eq!(
@@ -116,13 +120,14 @@ fn test_inputs() {
 
 #[test]
 fn test_let() {
+    #[derive(Clone)]
     struct Params {
         hyperfine_structure: i32,
     }
 
     let line = line!() + 2;
     #[bitcoin_cash::script(Inputs)]
-    fn script(params: &Params, alpha: i32, beta: i32) {
+    fn script(params: Params, alpha: i32, beta: i32) {
         let hyperfine_structure = params.hyperfine_structure * 1000;
         let circumference = OP_ADD(beta, hyperfine_structure);
         let relative_velocity = OP_ADD(alpha, circumference);
@@ -140,7 +145,7 @@ fn test_let() {
     };
 
     assert_eq!(
-        script(&params).ops().as_ref(),
+        params.clone().script().ops().as_ref(),
         &[
             TaggedOp {
                 src_code: vec![
@@ -356,7 +361,7 @@ let f = OP_DIV(
     );
 
     assert_eq!(
-        &script(&params).script_ops().collect::<Vec<_>>(),
+        &params.script().script_ops().collect::<Vec<_>>(),
         &[
             &Op::PushInteger(1337 * 1000),
             &Op::Code(OP_ADD),
@@ -379,8 +384,9 @@ let f = OP_DIV(
 
 #[test]
 fn test_if() {
+    struct Params;
     #[bitcoin_cash::script(Inputs)]
-    fn script(_: (), a: i32, b: bool) {
+    fn script(_: Params, a: i32, b: bool) {
         OP_IF(b);
         let _x = OP_1ADD(a);
         OP_ELSE;
@@ -391,7 +397,7 @@ fn test_if() {
     }
 
     assert_eq!(
-        &script(()).script_ops().collect::<Vec<_>>(),
+        &Params.script().script_ops().collect::<Vec<_>>(),
         &[
             &Op::Code(OP_IF),
             &Op::Code(OP_1ADD),
@@ -414,6 +420,7 @@ fn test_if() {
 
 #[test]
 fn test_params() {
+    #[derive(Clone)]
     struct Params {
         p1: i32,
         p2: Vec<u8>,
@@ -421,7 +428,7 @@ fn test_params() {
     }
 
     #[bitcoin_cash::script(Inputs)]
-    fn script(params: &Params, a: i32, b: bool, c: [u8; 32]) {
+    fn script(params: Params, a: i32, b: bool, c: [u8; 32]) {
         let p2 = params.p2;
         let c = OP_CAT(c, p2);
         let c = OP_BIN2NUM(c);
@@ -452,7 +459,7 @@ fn test_params() {
     };
 
     assert_eq!(
-        &script(&params).script_ops().collect::<Vec<_>>(),
+        &params.clone().script().script_ops().collect::<Vec<_>>(),
         &[
             &Op::PushByteArray {
                 array: params.p2.into(),
@@ -480,8 +487,9 @@ fn test_params() {
 
 #[test]
 fn test_depth_of() {
+    struct Params;
     #[bitcoin_cash::script(Inputs)]
-    fn script(_: ()) {
+    fn script(_: Params) {
         let _a = 6;
         let _b = 5;
         let _c = 4;
@@ -491,7 +499,7 @@ fn test_depth_of() {
     }
 
     assert_eq!(
-        &script(()).script_ops().collect::<Vec<_>>(),
+        &Params.script().script_ops().collect::<Vec<_>>(),
         &[
             &Op::PushInteger(6),
             &Op::PushInteger(5),
@@ -505,8 +513,9 @@ fn test_depth_of() {
 
 #[test]
 fn test_attributes() {
+    struct Params;
     #[bitcoin_cash::script(Inputs, A = "!p1", B = "p1")]
-    fn script(_: (), #[variant(A)] a: i32, #[variant(A, B)] b: i32, c: i32) {
+    fn script(_: Params, #[variant(A)] a: i32, #[variant(A, B)] b: i32, c: i32) {
         let p1 = OP_0NOTEQUAL(c);
         OP_IF(p1);
         {
@@ -525,17 +534,20 @@ fn test_attributes() {
     Inputs::A { a: 12, b: 5, c: 4 };
 
     Inputs::B { b: 3, c: 0 };
+
+    Params.script();
 }
 
 #[test]
 fn test_generics() {
+    struct Params;
     #[bitcoin_cash::script(Inputs)]
-    fn script(_: (), a: ByteArray) {
+    fn script(_: Params, a: ByteArray) {
         let _4 = 4;
         let (b, c) = OP_SPLIT(a, _4);
     }
     assert_eq!(
-        &script(()).script_ops().collect::<Vec<_>>(),
+        &Params.script().script_ops().collect::<Vec<_>>(),
         &[&Op::PushInteger(4), &Op::Code(OP_SPLIT)],
     );
     assert_eq!(
@@ -551,12 +563,14 @@ fn test_generics() {
             is_minimal: true,
         }],
     );
+    Params.script();
 }
 
 #[test]
 fn test_variants() {
+    struct Params;
     #[bitcoin_cash::script(Inputs, A = "!p1", B = "p1")]
-    fn script(_: (), #[variant(A)] a: ByteArray, #[variant(A, B)] b: ByteArray, c: ByteArray) {
+    fn script(_: Params, #[variant(A)] a: ByteArray, #[variant(A, B)] b: ByteArray, c: ByteArray) {
         let empty_str = b"";
         let p1 = OP_EQUAL(c, empty_str);
         OP_IF(p1);
@@ -583,24 +597,28 @@ fn test_variants() {
         b: ByteArray::from_slice("b", b"potato"),
         c: ByteArray::from_slice("c", b"pineapple"),
     };
+    Params.script();
 }
 
 #[test]
 fn test_placeholder() {
+    struct Params;
     #[bitcoin_cash::script(Inputs)]
-    fn script(_: (), a: i32, b: i32, c: i32) {
+    fn script(_: Params, a: i32, b: i32, c: i32) {
         let (__, __, beer) = OP_ROT(a, __, __);
         OP_DROP(beer);
         OP_DROP(c);
         OP_DROP(b);
     }
+    Params.script();
 }
 
 #[test]
 fn test_doctest() {
+    struct Params;
     #[bitcoin_cash::script(Inputs)]
     fn script(
-        _: (),
+        _: Params,
         #[doc = "Doctest"] a: i32,
         #[doc = "Doctest"] b: i32,
         #[doc = "Doctest"] c: i32,
@@ -610,4 +628,21 @@ fn test_doctest() {
         OP_DROP(c);
         OP_DROP(b);
     }
+    Params.script();
+}
+
+#[test]
+fn test_lifetime() {
+    struct Params<'a> {
+        x: &'a i32,
+    };
+    #[bitcoin_cash::script(Inputs)]
+    fn script(
+        params: Params<'_>,
+    ) {
+        let x = params.x;
+        let y = 8;
+        OP_ADD(x, y);
+    }
+    Params { x: &5 } .script();
 }

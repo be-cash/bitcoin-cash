@@ -29,7 +29,7 @@ impl GenerateScript {
     }
 
     fn run_script(&mut self, script: Result<ir::Script, Error>) -> Result<TokenStream, Error> {
-        let mut script = script?;
+        let script = script?;
         let stmt_token_streams = make_stmt_token_streams(&script.stmts);
         let mut new_stmts = Vec::with_capacity(script.stmts.len());
         let mut struct_fields = Vec::with_capacity(script.inputs.len());
@@ -136,14 +136,18 @@ impl GenerateScript {
         }
         let attrs = script.attrs;
         let vis = script.vis;
+        let mut sig = script.sig.clone();
         let mut inputs = Punctuated::new();
-        inputs.push(script.sig.inputs[0].clone());
-        script.sig.inputs = inputs;
-        script.sig.output = syn::ReturnType::Default;
+        let param_type = &script.param_type;
+        inputs.push(sig.inputs[0].clone());
+        sig.ident = syn::Ident::new(&format!("__impl_{}", sig.ident), sig.ident.span());
+        sig.inputs = inputs;
+        sig.output = syn::ReturnType::Default;
+        let pub_func_name = &script.sig.ident;
+        let hidden_func_name = &sig.ident;
         let input_struct = script.input_struct;
-        let sig = script.sig;
         let generics = sig.generics.clone();
-        let generics_idents: Punctuated<_, syn::token::Comma> =
+        let _generics_idents: Punctuated<_, syn::token::Comma> =
             Punctuated::from_iter(generics.params.iter().map(|param| match param {
                 syn::GenericParam::Type(ty) => ty.ident.to_token_stream(),
                 syn::GenericParam::Lifetime(lt) => lt.lifetime.to_token_stream(),
@@ -156,7 +160,7 @@ impl GenerateScript {
             (
                 quote! {
                     #( #[doc = #struct_enum_docs] )*
-                    #vis struct #input_struct #generics {
+                    #vis struct #input_struct {
                         #(#struct_fields),*
                     }
                 },
@@ -221,7 +225,7 @@ impl GenerateScript {
             (
                 quote! {
                     #( #[doc = #struct_enum_docs] )*
-                    #vis enum #input_struct #generics {
+                    #vis enum #input_struct {
                         #(#enum_variants),*
                     }
                 },
@@ -236,21 +240,27 @@ impl GenerateScript {
         Ok(quote! {
             #input_struct_enum
 
-            impl #generics #crate_ident::Ops for #input_struct<#generics_idents> {
+            impl #crate_ident::Ops for #input_struct {
                 fn ops(&self) -> std::borrow::Cow<[#crate_ident::TaggedOp]> {
                     use #crate_ident::BitcoinDataType;
                     #impl_ops.into()
                 }
             }
 
-            #[allow(clippy::redundant_clone)]
-            #[allow(redundant_semicolon)]
-            #(#attrs)*
-            #vis #sig -> #crate_ident::TaggedScript<#input_struct<#generics_idents>> {
-                use #crate_ident::BitcoinDataType;
-                let mut #script_ident = Vec::new();
-                #(#new_stmts)*
-                return #crate_ident::TaggedScript::new(#script_ident);
+            impl #param_type {
+                #[allow(clippy::redundant_clone)]
+                #[allow(redundant_semicolon)]
+                #(#attrs)*
+                #sig -> #crate_ident::TaggedScript<#input_struct> {
+                    use #crate_ident::BitcoinDataType;
+                    let mut #script_ident = Vec::new();
+                    #(#new_stmts)*
+                    return #crate_ident::TaggedScript::new(#script_ident);
+                }
+
+                #vis fn #pub_func_name(self) -> #crate_ident::TaggedScript<#input_struct> {
+                    Self::#hidden_func_name(self)
+                }
             }
         })
     }

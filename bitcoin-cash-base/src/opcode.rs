@@ -51,7 +51,7 @@ pub struct OpcodeBehavior {
 ///   address: Address<'static>,
 /// }
 /// #[bitcoin_cash::script(P2pkhInputs)]
-/// fn p2pkh_script(params: &Params, signature: ByteArray, public_key: ByteArray) {
+/// fn p2pkh_script(params: Params, signature: ByteArray, public_key: ByteArray) {
 ///   OP_DUP(public_key);
 ///   let pkh = OP_HASH160(public_key);
 ///   let address = { params.address.hash().as_slice() };
@@ -71,8 +71,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let zero = OP_0;
     /// let expected = 0;  // equivalent (and prefered) way to push numbers
     /// OP_EQUALVERIFY(zero, expected);
@@ -98,8 +99,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // push -1
     /// let minus_one = OP_1NEGATE;
     ///
@@ -121,8 +123,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // push 1
     /// let one = OP_1;
     ///
@@ -141,8 +144,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // push 2
     /// let two = OP_2;
     ///
@@ -161,8 +165,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // push 3
     /// let three = OP_3;
     ///
@@ -181,8 +186,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // push 4
     /// let four = OP_4;
     ///
@@ -201,8 +207,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // push 5
     /// let five = OP_5;
     ///
@@ -221,8 +228,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // push 6
     /// let six = OP_6;
     ///
@@ -241,8 +249,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // push 7
     /// let seven = OP_7;
     ///
@@ -261,8 +270,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // push 8
     /// let eight = OP_8;
     ///
@@ -281,8 +291,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // push 9
     /// let nine = OP_9;
     ///
@@ -301,8 +312,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // push 10
     /// let ten = OP_10;
     ///
@@ -321,8 +333,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // push 11
     /// let eleven = OP_11;
     ///
@@ -341,8 +354,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // push 12
     /// let twelve = OP_12;
     ///
@@ -361,8 +375,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // push 13
     /// let thirteen = OP_13;
     ///
@@ -381,8 +396,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // push 14
     /// let fourteen = OP_14;
     ///
@@ -401,8 +417,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // push 15
     /// let fiveteen = OP_15;
     ///
@@ -421,8 +438,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // push 16
     /// let sixteen = OP_16;
     ///
@@ -441,8 +459,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // do nothing
     /// OP_NOP();
     /// # }
@@ -462,8 +481,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let condition = true;
     ///
     /// // branch on condition
@@ -498,8 +518,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let condition = true;
     ///
     /// // branch on condition
@@ -525,8 +546,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let condition = true;
     ///
     /// // branch on condition
@@ -551,8 +573,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let condition = true;
     ///
     /// // verify condition
@@ -573,8 +596,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let item = b"Bitcoin Cash";
     ///
     /// // move item to altstack
@@ -596,8 +620,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let item = b"Bitcoin Cash";
     /// OP_TOALTSTACK(item);
     /// let expected = b"Bitcoin Cash";
@@ -623,8 +648,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"A";
     /// let b = b"B";
     /// let c = b"C";
@@ -651,8 +677,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"A";
     /// let b = b"B";
     ///
@@ -684,8 +711,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"A";
     /// let b = b"B";
     /// let c = b"C";
@@ -722,8 +750,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"A";
     /// let b = b"B";
     /// let c = b"C";
@@ -761,8 +790,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"A";
     /// let b = b"B";
     /// let c = b"C";
@@ -802,8 +832,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"A";
     /// let b = b"B";
     /// let c = b"C";
@@ -836,8 +867,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"A";
     /// let b = b"B";
     /// let c = b"C";
@@ -864,8 +896,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"A";
     /// let b = b"B";
     ///
@@ -891,8 +924,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"A";
     ///
     /// // drop b and c
@@ -919,8 +953,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"A";
     /// let b = b"B";
     ///
@@ -946,8 +981,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"A";
     /// let b = b"B";
     ///
@@ -977,8 +1013,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"A";
     /// let b = b"B";
     ///
@@ -1010,8 +1047,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"A";
     /// let b = b"B";
     ///
@@ -1041,8 +1079,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"A";
     /// let b = b"B";
     /// let c = b"C";
@@ -1073,8 +1112,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"A";
     /// let b = b"B";
     ///
@@ -1102,8 +1142,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"A";
     /// let b = b"B";
     ///
@@ -1129,8 +1170,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"Bitcoin";
     /// let b = b"Cash";
     ///
@@ -1152,8 +1194,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let array = b"BitcoinCash";
     /// let split_index = 7;
     ///
@@ -1178,8 +1221,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let num = 0x1337;
     /// let n_bytes = 2;
     ///
@@ -1202,8 +1246,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let num_encoded = b"\x37\x13";
     ///
     /// // decode num_encoded
@@ -1224,8 +1269,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let array = b"BitcoinCash";
     ///
     /// // calculate size of array
@@ -1253,8 +1299,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"\x0103";
     /// let b = b"\x0302";
     ///
@@ -1278,8 +1325,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"\x0103";
     /// let b = b"\x0201";
     ///
@@ -1303,8 +1351,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"\x0103";
     /// let b = b"\x0302";
     ///
@@ -1326,8 +1375,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"BitcoinCash";
     /// let b = b"BitcoinCash";
     ///
@@ -1348,8 +1398,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = b"BitcoinCash";
     /// let b = b"BitcoinCash";
     ///
@@ -1374,8 +1425,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = 7;
     ///
     /// // calculate a + 1
@@ -1396,8 +1448,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = 7;
     ///
     /// // calculate a - 1
@@ -1424,8 +1477,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = 7;
     ///
     /// // calculate -a
@@ -1446,8 +1500,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = -7;
     ///
     /// // calculate abs(a)
@@ -1468,8 +1523,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = false;
     ///
     /// // calculate !a
@@ -1489,8 +1545,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = 7;
     ///
     /// // calculate a != 0
@@ -1510,8 +1567,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = 7;
     /// let b = 3;
     ///
@@ -1533,8 +1591,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = 7;
     /// let b = 3;
     ///
@@ -1559,8 +1618,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = 7;
     /// let b = 3;
     ///
@@ -1582,8 +1642,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = 7;
     /// let b = 3;
     ///
@@ -1611,8 +1672,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = false;
     /// let b = true;
     ///
@@ -1634,8 +1696,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = false;
     /// let b = true;
     ///
@@ -1656,8 +1719,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = 7;
     /// let b = 7;
     ///
@@ -1678,8 +1742,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = 7;
     /// let b = 7;
     ///
@@ -1698,8 +1763,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = 7;
     /// let b = 9;
     ///
@@ -1720,8 +1786,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = 7;
     /// let b = 9;
     ///
@@ -1742,8 +1809,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = 11;
     /// let b = 9;
     ///
@@ -1764,8 +1832,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = 7;
     /// let b = 7;
     ///
@@ -1786,8 +1855,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = 9;
     /// let b = 9;
     ///
@@ -1808,8 +1878,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = 3;
     /// let b = 9;
     ///
@@ -1831,8 +1902,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = 3;
     /// let b = 9;
     ///
@@ -1854,8 +1926,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let a = 3;
     /// let min = 1;
     /// let max = 9;
@@ -1878,8 +1951,9 @@ pub enum Opcode {
     /// ```
     /// # use hex_literal::hex;
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let array = b"BitcoinCash";
     ///
     /// // calculate ripemd160(array)
@@ -1901,8 +1975,9 @@ pub enum Opcode {
     /// ```
     /// # use hex_literal::hex;
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let array = b"BitcoinCash";
     ///
     /// // calculates sha1(array)
@@ -1924,8 +1999,9 @@ pub enum Opcode {
     /// ```
     /// # use hex_literal::hex;
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let array = b"BitcoinCash";
     ///
     /// // calculates sha256(array)
@@ -1947,8 +2023,9 @@ pub enum Opcode {
     /// ```
     /// # use hex_literal::hex;
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let array = b"BitcoinCash";
     ///
     /// // calculates ripemd160(sha256(array))
@@ -1970,8 +2047,9 @@ pub enum Opcode {
     /// ```
     /// # use hex_literal::hex;
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let array = b"BitcoinCash";
     ///
     /// // calculates sha256(sha256(array))
@@ -1993,8 +2071,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let array = b"BitcoinCash";
     ///
     /// // removes "BitcoinCash" from scriptCode
@@ -2017,8 +2096,9 @@ pub enum Opcode {
     /// ```
     /// # use hex_literal::hex;
     /// # use bitcoin_cash::{Opcode::*, ByteArray};
+    /// # struct Params;
     /// #[bitcoin_cash::script(P2PKInputs)]
-    /// fn p2pk(_: (), signature: ByteArray) {
+    /// fn p2pk(_: Params, signature: ByteArray) {
     ///   let public_key = hex!("0201961ef44067e870a9b1684041929caffad57eae6bbc79dd785320d53231f519");
     ///
     ///   // check if `signature` signs current sighash for `public_key`
@@ -2040,8 +2120,9 @@ pub enum Opcode {
     /// ```
     /// # use hex_literal::hex;
     /// # use bitcoin_cash::{Opcode::*, ByteArray};
+    /// # struct Params;
     /// #[bitcoin_cash::script(P2PKInputs)]
-    /// fn p2pk(_: (), signature: ByteArray) {
+    /// fn p2pk(_: Params, signature: ByteArray) {
     ///   let public_key = hex!("0201961ef44067e870a9b1684041929caffad57eae6bbc79dd785320d53231f519");
     ///
     ///   // verify `signature` signs current sighash for `public_key`
@@ -2065,8 +2146,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // do nothing
     /// OP_NOP1();
     /// # }
@@ -2092,8 +2174,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let locktime = 400_000;
     ///
     /// // verify locktime
@@ -2117,8 +2200,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let sequence = 1000;
     ///
     /// // verify input age
@@ -2139,8 +2223,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // do nothing
     /// OP_NOP4();
     /// # }
@@ -2156,8 +2241,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // do nothing
     /// OP_NOP5();
     /// # }
@@ -2173,8 +2259,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // do nothing
     /// OP_NOP6();
     /// # }
@@ -2190,8 +2277,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // do nothing
     /// OP_NOP7();
     /// # }
@@ -2207,8 +2295,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // do nothing
     /// OP_NOP8();
     /// # }
@@ -2224,8 +2313,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // do nothing
     /// OP_NOP9();
     /// # }
@@ -2241,8 +2331,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// // do nothing
     /// OP_NOP10();
     /// # }
@@ -2259,8 +2350,9 @@ pub enum Opcode {
     /// ```
     /// # use hex_literal::hex;
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let signature = [
     ///     hex!("3045022100f560a6e928ec52e77801a3ea4cbfbe6d89d1fff77a8d2ed00c457af278ae54").as_ref(),
     ///     hex!("01022015cc2b1c92b53cef6afd10e5e5fa33eb66b9d13d82d970a4a951b6e7f1903509").as_ref(),
@@ -2283,8 +2375,9 @@ pub enum Opcode {
     /// ```
     /// # use hex_literal::hex;
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let signature = [
     ///     hex!("3045022100f560a6e928ec52e77801a3ea4cbfbe6d89d1fff77a8d2ed00c457af278ae54").as_ref(),
     ///     hex!("01022015cc2b1c92b53cef6afd10e5e5fa33eb66b9d13d82d970a4a951b6e7f1903509").as_ref(),
@@ -2306,8 +2399,9 @@ pub enum Opcode {
     /// Usage:
     /// ```
     /// # use bitcoin_cash::Opcode::*;
+    /// # struct Params;
     /// # #[bitcoin_cash::script(DemoInputs)]
-    /// # fn demo(_: ()) {
+    /// # fn demo(_: Params) {
     /// let array = b"BitcoinCash";
     ///
     /// // reverse array

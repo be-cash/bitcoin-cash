@@ -62,6 +62,10 @@ error_chain! {
         InvalidSignatureFormat {}
 
         InvalidPubkey {}
+
+        InputAlreadySigned(input_idx: usize) {}
+
+        InvalidAddressType {}
     }
 }
 
