@@ -17,14 +17,14 @@ pub enum SlpTxType {
 }
 
 pub struct SlpGenesisParams<'a> {
-    slp_token_type: SlpTokenType,
-    token_ticker: &'a str,
-    token_name: &'a str,
-    token_document_url: &'a str,
-    token_document_hash: &'a str,
-    decimals: u8,
-    mint_baton_vout: Option<u8>,
-    initial_token_mint_quantity: u64,
+    pub slp_token_type: SlpTokenType,
+    pub token_ticker: &'a str,
+    pub token_name: &'a str,
+    pub token_document_url: &'a str,
+    pub token_document_hash: &'a str,
+    pub decimals: u8,
+    pub mint_baton_vout: Option<u8>,
+    pub initial_token_mint_quantity: u64,
 }
 
 pub fn slp_amount_ops<'a>(output_amounts: impl IntoIterator<Item = &'a u64>) -> Vec<Op> {
