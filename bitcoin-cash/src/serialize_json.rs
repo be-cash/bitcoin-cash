@@ -1,6 +1,6 @@
 use crate::{
-    ByteArray, Function, Hashed, Op, Opcode, Ops, Script, Sha256d, TaggedOp, TxInput, TxOutpoint,
-    TxOutput, UnhashedTx,
+    ByteArray, Function, Hashed, InnerInteger, Integer, IntegerError, Op, Opcode, Ops, Script,
+    Sha256d, TaggedOp, TxInput, TxOutpoint, TxOutput, UnhashedTx,
 };
 use bimap::BiMap;
 use serde::{Deserialize, Serialize};
@@ -28,13 +28,14 @@ struct JsonByteArray {
     preimage_indices: Option<Vec<usize>>,
 }
 
-type JsonByteArrayTuple = (usize, Function, Option<usize>, Option<Vec<usize>>);
-type JsonByteArrayTupleRef<'a> = (
-    &'a usize,
-    &'a Function,
-    &'a Option<usize>,
-    &'a Option<Vec<usize>>,
-);
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+enum JsonByteArrayTuple {
+    A(usize, Function, Option<usize>, Option<Vec<usize>>),
+    B(usize, Function, Option<usize>),
+    C(usize, Function),
+    D(usize),
+}
 
 #[derive(Serialize, Deserialize)]
 enum JsonOp {
@@ -42,7 +43,7 @@ enum JsonOp {
     Invalid(u8),
     PushByteArray { array_idx: usize, is_minimal: bool },
     PushBoolean(bool),
-    PushInteger(i32),
+    PushInteger(InnerInteger),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -95,6 +96,9 @@ pub enum JsonError {
 
     #[error("Invalid hash")]
     InvalidHash,
+
+    #[error("Invalid integer: {0}")]
+    InvalidInteger(#[from] IntegerError),
 }
 
 pub fn tx_to_json(tx: &UnhashedTx) -> Result<String, serde_json::Error> {
@@ -215,7 +219,7 @@ impl JsonTaggedOp {
             Op::Code(code) => JsonOp::Code(code as u8),
             Op::Invalid(code) => JsonOp::Invalid(code),
             Op::PushBoolean(boolean) => JsonOp::PushBoolean(boolean),
-            Op::PushInteger(integer) => JsonOp::PushInteger(integer),
+            Op::PushInteger(integer) => JsonOp::PushInteger(integer.value()),
             Op::PushByteArray {
                 ref array,
                 is_minimal,
@@ -257,7 +261,7 @@ impl JsonTaggedOp {
             }
             JsonOp::Invalid(code) => Op::Invalid(code),
             JsonOp::PushBoolean(boolean) => Op::PushBoolean(boolean),
-            JsonOp::PushInteger(int) => Op::PushInteger(int),
+            JsonOp::PushInteger(int) => Op::PushInteger(Integer::new(int)?),
             JsonOp::PushByteArray {
                 array_idx,
                 is_minimal,
@@ -407,21 +411,33 @@ impl JsonData {
 
 impl JsonByteArray {
     fn from_tuple(t: JsonByteArrayTuple) -> Self {
-        JsonByteArray {
-            data_idx: t.0,
-            function: t.1,
-            name_idx: t.2,
-            preimage_indices: t.3,
+        use JsonByteArrayTuple::*;
+        match t {
+            A(data_idx, function, name_idx, preimage_indices) => JsonByteArray {
+                data_idx,
+                function,
+                name_idx,
+                preimage_indices,
+            },
+            B(data_idx, function, name_idx) => JsonByteArray {
+                data_idx,
+                function,
+                name_idx,
+                preimage_indices: None,
+            },
+            C(data_idx, function) => JsonByteArray {
+                data_idx,
+                function,
+                name_idx: None,
+                preimage_indices: None,
+            },
+            D(data_idx) => JsonByteArray {
+                data_idx,
+                function: Function::Plain,
+                name_idx: None,
+                preimage_indices: None,
+            },
         }
-    }
-
-    fn as_tuple(&self) -> JsonByteArrayTupleRef {
-        (
-            &self.data_idx,
-            &self.function,
-            &self.name_idx,
-            &self.preimage_indices,
-        )
     }
 }
 
@@ -441,6 +457,15 @@ impl serde::Serialize for JsonByteArray {
     where
         S: serde::Serializer,
     {
-        self.as_tuple().serialize(serializer)
+        match (self.function, self.name_idx, &self.preimage_indices) {
+            (_, Some(name_idx), Some(preimage_indices)) => {
+                (self.data_idx, self.function, name_idx, preimage_indices).serialize(serializer)
+            }
+            (_, Some(name_idx), None) => {
+                (self.data_idx, self.function, name_idx).serialize(serializer)
+            }
+            (Function::Plain, None, None) => self.data_idx.serialize(serializer),
+            _ => (self.data_idx, self.function).serialize(serializer),
+        }
     }
 }
