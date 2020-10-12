@@ -1,5 +1,6 @@
-use bitcoin_cash::{ByteArray, Op, Opcode::*, Ops, TaggedOp};
+use bitcoin_cash::{ByteArray, Integer, Op, Opcode::*, Ops, TaggedOp};
 use pretty_assertions::assert_eq;
+use std::convert::TryInto;
 
 #[test]
 fn test_adding() {
@@ -27,7 +28,7 @@ fn test_adding() {
                 src_file: file_name.into(),
                 src_line: line + 1,
                 src_column: 9,
-                op: Op::PushInteger(6),
+                op: Op::from_int(6),
                 pushed_names: Some(vec![None]),
                 alt_pushed_names: Some(vec![]),
             },
@@ -41,7 +42,7 @@ fn test_adding() {
                 src_file: file_name.into(),
                 src_line: line + 2,
                 src_column: 9,
-                op: Op::PushInteger(5),
+                op: Op::from_int(5),
                 pushed_names: Some(vec![None]),
                 alt_pushed_names: Some(vec![]),
             },
@@ -123,12 +124,12 @@ fn test_inputs() {
 fn test_let() {
     #[derive(Clone)]
     struct Params {
-        hyperfine_structure: i32,
+        hyperfine_structure: Integer,
     }
 
     let line = line!() + 2;
     #[bitcoin_cash::script(Inputs)]
-    fn script(params: Params, alpha: i32, beta: i32) {
+    fn script(params: Params, alpha: Integer, beta: Integer) {
         let hyperfine_structure = params.hyperfine_structure * 1000;
         let circumference = OP_ADD(beta, hyperfine_structure);
         let relative_velocity = OP_ADD(alpha, circumference);
@@ -142,7 +143,7 @@ fn test_let() {
     let file_name = file!();
 
     let params = Params {
-        hyperfine_structure: 1337,
+        hyperfine_structure: 1337.try_into().unwrap(),
     };
 
     assert_eq!(
@@ -178,7 +179,7 @@ let hyperfine_structure =
                 src_file: file_name.into(),
                 src_line: line + 1,
                 src_column: 35,
-                op: Op::PushInteger(1337 * 1000),
+                op: Op::from_int(1337 * 1000),
                 pushed_names: Some(vec![Some("hyperfine_structure".into())]),
                 alt_pushed_names: Some(vec![]),
             },
@@ -364,7 +365,7 @@ let f = OP_DIV(
     assert_eq!(
         &params.script().script_ops().collect::<Vec<_>>(),
         &[
-            &Op::PushInteger(1337 * 1000),
+            &Op::from_int(1337 * 1000),
             &Op::Code(OP_ADD),
             &Op::Code(OP_ADD),
             &Op::Code(OP_DUP),
@@ -374,12 +375,15 @@ let f = OP_DIV(
         ],
     );
     assert_eq!(
-        Inputs { alpha: 5, beta: 6 }
-            .ops()
-            .iter()
-            .map(|op| &op.op)
-            .collect::<Vec<_>>(),
-        &[&Op::PushInteger(5), &Op::PushInteger(6)],
+        Inputs {
+            alpha: Integer::new(5).unwrap(),
+            beta: Integer::new(6).unwrap()
+        }
+        .ops()
+        .iter()
+        .map(|op| &op.op)
+        .collect::<Vec<_>>(),
+        &[&Op::from_int(5), &Op::from_int(6)],
     );
 }
 
@@ -405,7 +409,7 @@ fn test_if() {
             &Op::Code(OP_ELSE),
             &Op::Code(OP_1SUB),
             &Op::Code(OP_ENDIF),
-            &Op::PushInteger(3),
+            &Op::from_int(3),
             &Op::Code(OP_DIV),
         ],
     );
@@ -415,7 +419,7 @@ fn test_if() {
             .iter()
             .map(|op| &op.op)
             .collect::<Vec<_>>(),
-        &[&Op::PushInteger(5), &Op::PushBoolean(true),],
+        &[&Op::from_int(5), &Op::PushBoolean(true),],
     );
 }
 
@@ -462,25 +466,22 @@ fn test_params() {
     assert_eq!(
         &params.clone().script().script_ops().collect::<Vec<_>>(),
         &[
-            &Op::PushByteArray {
-                array: params.p2.into(),
-                is_minimal: true,
-            },
+            &Op::from_array(params.p2),
             &Op::Code(OP_CAT),
             &Op::Code(OP_BIN2NUM),
-            &Op::PushInteger(params.p1),
+            &Op::from_int(params.p1),
             &Op::Code(OP_ADD),
             &Op::Code(OP_SWAP),
             &Op::Code(OP_IF),
             &Op::Code(OP_ADD),
-            &Op::PushInteger(4),
+            &Op::from_int(4),
             &Op::Code(OP_ELSE),
             &Op::Code(OP_SUB),
-            &Op::PushInteger(4),
+            &Op::from_int(4),
             &Op::Code(OP_ENDIF),
             &Op::Code(OP_NUM2BIN),
             &Op::Code(OP_BIN2NUM),
-            &Op::PushInteger(params.p3),
+            &Op::from_int(params.p3),
             &Op::Code(OP_GREATERTHAN),
         ],
     );
@@ -502,10 +503,10 @@ fn test_depth_of() {
     assert_eq!(
         &Params.script().script_ops().collect::<Vec<_>>(),
         &[
-            &Op::PushInteger(6),
-            &Op::PushInteger(5),
-            &Op::PushInteger(4),
-            &Op::PushInteger(2),
+            &Op::from_int(6),
+            &Op::from_int(5),
+            &Op::from_int(4),
+            &Op::from_int(2),
             &Op::Code(OP_PICK),
             &Op::Code(OP_1ADD),
         ],
@@ -549,7 +550,7 @@ fn test_generics() {
     }
     assert_eq!(
         &Params.script().script_ops().collect::<Vec<_>>(),
-        &[&Op::PushInteger(4), &Op::Code(OP_SPLIT)],
+        &[&Op::from_int(4), &Op::Code(OP_SPLIT)],
     );
     assert_eq!(
         Inputs {
@@ -559,10 +560,7 @@ fn test_generics() {
         .iter()
         .map(|op| &op.op)
         .collect::<Vec<_>>(),
-        vec![&Op::PushByteArray {
-            array: ByteArray::from_slice("a", b""),
-            is_minimal: true,
-        }],
+        vec![&Op::from_array(ByteArray::from_slice("a", b""))],
     );
     Params.script();
 }

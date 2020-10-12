@@ -1,7 +1,7 @@
 use crate::Op;
 use std::borrow::Cow;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TaggedOp {
     pub op: Op,
     pub src_file: Cow<'static, str>,

@@ -1,4 +1,4 @@
-use crate::Integer;
+use crate::{InnerInteger, Integer};
 use byteorder::{LittleEndian, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -400,12 +400,14 @@ impl ByteArray {
 
     #[allow(clippy::comparison_chain)]
     pub fn from_int(int: Integer, n_bytes: Integer) -> Result<Self, String> {
+        let int = int.value();
+        let n_bytes = n_bytes.value();
         if n_bytes <= 0 {
             return Err(format!("n_bytes={} not valid", n_bytes));
         }
         let max_bits = (n_bytes * 8 - 1).min(31) as u128;
         let max_num: u128 = 1 << max_bits;
-        let max_num = (max_num - 1) as Integer;
+        let max_num = (max_num - 1) as InnerInteger;
         let min_num = -max_num;
         if int < min_num || int > max_num {
             return Err(format!("int={} not valid for n_bytes={}", int, n_bytes));
@@ -572,6 +574,12 @@ array_impls! {
 impl Hash for ByteArray {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.data.hash(state)
+    }
+}
+
+impl std::fmt::Display for ByteArray {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", hex::encode(self))
     }
 }
 

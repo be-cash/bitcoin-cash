@@ -1,12 +1,12 @@
-use crate::{ByteArray, Opcode};
+use crate::{ByteArray, Integer, Opcode};
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum Op {
     Code(Opcode),
     Invalid(u8),
     PushByteArray { array: ByteArray, is_minimal: bool },
     PushBoolean(bool),
-    PushInteger(i32),
+    PushInteger(Integer),
 }
 
 impl std::fmt::Display for Op {
@@ -37,11 +37,21 @@ impl std::fmt::Debug for Op {
     }
 }
 
-impl From<ByteArray> for Op {
-    fn from(array: ByteArray) -> Self {
+impl Op {
+    pub fn from_array(array: impl Into<ByteArray>) -> Op {
         Op::PushByteArray {
-            array,
+            array: array.into(),
             is_minimal: true,
         }
+    }
+
+    pub fn from_int(int: impl std::convert::TryInto<Integer>) -> Op {
+        Op::PushInteger(int.try_into().map_err(|_| "invalid integer").unwrap())
+    }
+}
+
+impl From<ByteArray> for Op {
+    fn from(array: ByteArray) -> Self {
+        Op::from_array(array)
     }
 }

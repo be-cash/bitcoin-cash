@@ -1,5 +1,4 @@
-use crate::address::CashAddrError;
-use crate::serialize_json::JsonError;
+use crate::{address::CashAddrError, IntegerError, JsonError};
 
 #[derive(Error, Clone, Copy, Debug, PartialEq)]
 pub enum BitcoinCodeError {
@@ -84,6 +83,9 @@ pub enum Error {
 
     #[error("Invalid address type")]
     InvalidAddressType,
+
+    #[error("Integer error: {0}")]
+    IntegerError(#[from] IntegerError),
 
     #[error("{0}")]
     Msg(String),

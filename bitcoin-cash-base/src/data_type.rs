@@ -1,4 +1,4 @@
-use crate::{ByteArray, Op};
+use crate::{ByteArray, InnerInteger, Integer, IntegerResult, Op};
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub enum DataType {
@@ -8,16 +8,14 @@ pub enum DataType {
     ByteArray(Option<usize>),
 }
 
-pub type Integer = i32;
-
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum StackItemData {
     Integer(Integer),
     Boolean(bool),
     ByteArray(ByteArray),
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct BitcoinInteger(pub Integer);
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BitcoinBoolean(pub bool);
@@ -43,6 +41,30 @@ impl BitcoinDataType for Integer {
         DataType::Integer
     }
 }
+impl BitcoinDataType for IntegerResult {
+    type Type = BitcoinInteger;
+    fn to_data(&self) -> Self::Type {
+        BitcoinInteger(self.integer().expect("Invalid integer"))
+    }
+    fn to_pushop(&self) -> Op {
+        Op::PushInteger(self.integer().expect("Invalid integer"))
+    }
+    fn to_data_type(&self) -> DataType {
+        DataType::Integer
+    }
+}
+impl BitcoinDataType for InnerInteger {
+    type Type = BitcoinInteger;
+    fn to_data(&self) -> Self::Type {
+        BitcoinInteger(Integer::new(*self).expect("Invalid integer"))
+    }
+    fn to_pushop(&self) -> Op {
+        Op::PushInteger(Integer::new(*self).expect("Invalid integer"))
+    }
+    fn to_data_type(&self) -> DataType {
+        DataType::Integer
+    }
+}
 impl BitcoinDataType for bool {
     type Type = BitcoinBoolean;
     fn to_data(&self) -> Self::Type {
@@ -61,10 +83,7 @@ impl BitcoinDataType for [u8] {
         BitcoinByteArray(self.into())
     }
     fn to_pushop(&self) -> Op {
-        Op::PushByteArray {
-            array: self.to_vec().into(),
-            is_minimal: true,
-        }
+        Op::from_array(self)
     }
     fn to_data_type(&self) -> DataType {
         DataType::ByteArray(None)
@@ -76,10 +95,7 @@ impl BitcoinDataType for ByteArray {
         BitcoinByteArray(self.clone())
     }
     fn to_pushop(&self) -> Op {
-        Op::PushByteArray {
-            array: self.clone(),
-            is_minimal: true,
-        }
+        Op::from_array(self.clone())
     }
     fn to_data_type(&self) -> DataType {
         DataType::ByteArray(Some(self.len()))

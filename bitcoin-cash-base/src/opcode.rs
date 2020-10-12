@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 
 use crate::data_type::{BitcoinBoolean, BitcoinByteArray, BitcoinInteger, DataType};
+use crate::Integer;
 
 lazy_static! {
     pub static ref MAP_NAME_TO_ENUM: HashMap<String, Opcode> = {
@@ -79,13 +80,16 @@ pub enum Opcode {
     /// ```
     OP_0 = 0x00,
 
-    /// Pushes the next byte number of bytes. Not to be used in `#[bitcoin_cash::script]` functions.
+    /// Pushes the next byte number of bytes. Not to be used in `#[bitcoin_cash::script]`
+    /// functions.
     OP_PUSHDATA1 = 0x4c,
 
-    /// Pushes the next two byte number of bytes. Not to be used in `#[bitcoin_cash::script]` functions.
+    /// Pushes the next two byte number of bytes. Not to be used in `#[bitcoin_cash::script]`
+    /// functions.
     OP_PUSHDATA2 = 0x4d,
 
-    /// Pushes the next four byte number of bytes. Not to be used in `#[bitcoin_cash::script]` functions.
+    /// Pushes the next four byte number of bytes. Not to be used in `#[bitcoin_cash::script]`
+    /// functions.
     OP_PUSHDATA4 = 0x4e,
 
     /// ```text
@@ -853,7 +857,8 @@ pub enum Opcode {
     /// ```
     OP_2SWAP = 0x72,
 
-    /// If the top stack value is true, duplicate it. Not to be used in `#[bitcoin_cash::script]` functions.
+    /// If the top stack value is true, duplicate it. Not to be used in `#[bitcoin_cash::script]`
+    /// functions.
     OP_IFDUP = 0x73,
 
     /// ```text
@@ -2342,7 +2347,8 @@ pub enum Opcode {
     /// OP_CHECKDATASIG(signature: ByteArray, message: ByteArray, public_key: ByteArray) -> bool
     /// ```
     ///
-    /// Checks whether `signature` is a valid ECDSA or Schnorr signature for `sha256(message)` and `public_key`.
+    /// Checks whether `signature` is a valid ECDSA or Schnorr signature for `sha256(message)` and
+    /// `public_key`.
     ///
     /// Usage:
     /// ```
@@ -2367,7 +2373,8 @@ pub enum Opcode {
     /// OP_CHECKDATASIGVERIFY(signature: ByteArray, message: ByteArray, public_key: ByteArray) -> ()
     /// ```
     ///
-    /// Verifies that `signature` is a valid ECDSA or Schnorr signature for `sha256(message)` and `public_key`.
+    /// Verifies that `signature` is a valid ECDSA or Schnorr signature for `sha256(message)` and
+    /// `public_key`.
     ///
     /// Usage:
     /// ```
@@ -2415,6 +2422,13 @@ pub enum Opcode {
     FIRST_UNDEFINED_OP_VALUE,
 }
 
+impl std::fmt::Display for Opcode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s: &str = self.into();
+        write!(f, "{}", s)
+    }
+}
+
 /// Internal module used for type checking.
 ///
 /// Functions only push mock data.
@@ -2433,58 +2447,58 @@ pub mod func {
     }
 
     pub fn OP_1NEGATE() -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_0() -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_1() -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_2() -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_3() -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_4() -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_5() -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_6() -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_7() -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_8() -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_9() -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_10() -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_11() -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_12() -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_13() -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_14() -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_15() -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_16() -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
 
     pub fn OP_NOP() {}
@@ -2548,7 +2562,7 @@ pub mod func {
         (item3, item4, item1, item2)
     }
     pub fn OP_DEPTH() -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_DROP<T>(item: T) {}
     pub fn OP_DUP<T: Clone>(item: T) -> (T, T) {
@@ -2589,10 +2603,10 @@ pub mod func {
         BitcoinByteArray(b"MOCK".as_ref().into())
     }
     pub fn OP_BIN2NUM(array: BitcoinByteArray) -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_SIZE(array: BitcoinByteArray) -> (BitcoinByteArray, BitcoinInteger) {
-        (array, BitcoinInteger(0))
+        (array, BitcoinInteger(Integer::ZERO))
     }
     pub fn OP_AND(array1: BitcoinByteArray, array2: BitcoinByteArray) -> BitcoinByteArray {
         BitcoinByteArray(b"MOCK".as_ref().into())
@@ -2609,16 +2623,16 @@ pub mod func {
     pub fn OP_EQUALVERIFY<T>(item1: T, item2: T) {}
 
     pub fn OP_1ADD(num: BitcoinInteger) -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_1SUB(num: BitcoinInteger) -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_NEGATE(num: BitcoinInteger) -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_ABS(num: BitcoinInteger) -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_NOT(boolean: BitcoinBoolean) -> BitcoinBoolean {
         BitcoinBoolean(true)
@@ -2627,16 +2641,16 @@ pub mod func {
         BitcoinBoolean(true)
     }
     pub fn OP_ADD(num1: BitcoinInteger, num2: BitcoinInteger) -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_SUB(num1: BitcoinInteger, num2: BitcoinInteger) -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_DIV(num1: BitcoinInteger, num2: BitcoinInteger) -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_MOD(num1: BitcoinInteger, num2: BitcoinInteger) -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_BOOLAND(boolean1: BitcoinBoolean, boolean2: BitcoinBoolean) -> BitcoinBoolean {
         BitcoinBoolean(true)
@@ -2664,10 +2678,10 @@ pub mod func {
         BitcoinBoolean(true)
     }
     pub fn OP_MIN(num1: BitcoinInteger, num2: BitcoinInteger) -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_MAX(num1: BitcoinInteger, num2: BitcoinInteger) -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_WITHIN(
         num1: BitcoinInteger,
@@ -2697,10 +2711,10 @@ pub mod func {
     }
     pub fn OP_CHECKSIGVERIFY(sig: BitcoinByteArray, pubkey: BitcoinByteArray) {}
     pub fn OP_CHECKLOCKTIMEVERIFY(locktime: BitcoinInteger) -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_CHECKSEQUENCEVERIFY(sequence: BitcoinInteger) -> BitcoinInteger {
-        BitcoinInteger(0)
+        BitcoinInteger(Integer::ZERO)
     }
     pub fn OP_CHECKDATASIG(
         sig: BitcoinByteArray,

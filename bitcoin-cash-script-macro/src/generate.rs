@@ -5,6 +5,7 @@ use bitcoin_cash_base::{Integer, Opcode};
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
 use std::collections::HashMap;
+use std::convert::TryInto;
 use std::iter::FromIterator;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
@@ -381,7 +382,13 @@ impl GenerateScript {
                 let stack_item = self.pop(opcode_type, expr_span)?;
                 Self::verify_item_name(opcode_type, &opcode, &stack_item)?;
                 let item_depth = match stack_item.integer {
-                    Some(integer) => integer as usize,
+                    Some(integer) => {
+                        let result: Result<usize, _> = integer.value().try_into();
+                        match result {
+                            Ok(depth) => depth,
+                            Err(err) => return Err(syn::Error::new(expr_span, err.to_string())),
+                        }
+                    }
                     _ => 0, // take top stack item if not known statically
                 };
                 let mut item = match opcode_type {
@@ -641,13 +648,15 @@ impl GenerateScript {
                     } else {
                         self.make_ident(opcode.outputs_span)
                     };
-                    let depth = depth as Integer;
+                    let depth = Integer::new(depth)
+                        .map_err(|err| syn::Error::new(span, err.to_string()))?;
                     self.push(StackItem {
                         ident: ident.clone(),
                         name: ident.to_string(),
                         has_generated_name,
                         integer: Some(depth),
                     });
+                    let depth = depth.value();
                     let script_ident = &self.script_ident;
                     Ok(quote_spanned! {span=>
                         let #ident = (#depth).to_data();

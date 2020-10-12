@@ -1,4 +1,4 @@
-use crate::error::Error;
+use crate::{error::Error, InnerInteger};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use std::io;
 
@@ -75,7 +75,7 @@ pub fn encode_minimally(vec: &mut Vec<u8>) {
     }
 }
 
-pub fn encode_int(int: i32) -> Vec<u8> {
+pub fn encode_int(int: InnerInteger) -> Vec<u8> {
     let mut vec = Vec::new();
     vec.write_i32::<LittleEndian>(int.abs()).unwrap();
     if int < 0 {
@@ -93,12 +93,12 @@ pub fn encode_bool(b: bool) -> Vec<u8> {
     }
 }
 
-fn try_shl(a: i32, b: u32, vec: &[u8]) -> Result<i32, Error> {
+fn try_shl(a: InnerInteger, b: u32, vec: &[u8]) -> Result<InnerInteger, Error> {
     a.checked_shl(b)
         .ok_or_else(|| Error::Msg(format!("Overflow for {}", hex::encode(vec))))
 }
 
-pub fn vec_to_int(vec: &[u8]) -> Result<i32, Error> {
+pub fn vec_to_int(vec: &[u8]) -> Result<InnerInteger, Error> {
     if vec.is_empty() {
         return Ok(0);
     }
@@ -107,11 +107,11 @@ pub fn vec_to_int(vec: &[u8]) -> Result<i32, Error> {
     let sign_bit = vec[vec.len() - 1] & 0x80;
     for (i, value) in vec.iter().enumerate() {
         if i == vec.len() - 1 && sign_bit != 0 {
-            int += try_shl((*value ^ sign_bit) as i32, shift, vec)?;
+            int += try_shl((*value ^ sign_bit) as InnerInteger, shift, vec)?;
             int *= -1;
         } else {
             if *value != 0 {
-                int += try_shl(*value as i32, shift, vec)?;
+                int += try_shl(*value as InnerInteger, shift, vec)?;
             }
             shift += 8;
         }
