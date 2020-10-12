@@ -25,3 +25,4 @@ regex = "1.3"
 [dev-dependencies]
 bitcoin-cash = {path="../bitcoin-cash", version="0"}
 pretty_assertions = "0.6"
+hex = "0.4"
