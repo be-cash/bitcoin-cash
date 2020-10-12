@@ -3,16 +3,12 @@ use crate::{
     encoding_utils::encode_int, serializer::NEXT_BYTE_ARRAY, ByteArray, Op, Opcode, Ops, TaggedOp,
 };
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use serde::{
-    de,
-    ser::{self, SerializeStruct},
-    Deserialize, Deserializer, Serialize, Serializer,
-};
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
 use std::io::Read;
 use std::sync::Arc;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Script {
     ops: Arc<[TaggedOp]>,
 }
@@ -26,6 +22,16 @@ impl Ops for Script {
 impl Script {
     pub fn new(ops: impl Into<Arc<[TaggedOp]>>) -> Self {
         Script { ops: ops.into() }
+    }
+
+    pub fn from_ops(ops: impl IntoIterator<Item = Op>) -> Self {
+        Script {
+            ops: ops
+                .into_iter()
+                .map(TaggedOp::from_op)
+                .collect::<Vec<_>>()
+                .into(),
+        }
     }
 }
 
@@ -116,72 +122,63 @@ fn serialize_push_prefix(
         }
         len @ 0x100..=0xffff => {
             vec.push(OP_PUSHDATA2 as u8);
-            vec.write_u16::<LittleEndian>(len as u16).unwrap();
+            vec.write_u16::<LittleEndian>(len as u16)?;
         }
         len @ 0x10000..=0xffff_ffff => {
             vec.push(OP_PUSHDATA4 as u8);
-            vec.write_u32::<LittleEndian>(len as u32).unwrap();
+            vec.write_u32::<LittleEndian>(len as u32)?;
         }
         _ => return ScriptSerializeError::PushTooLarge.into_err(),
     }
     Ok(PushPrefixTail::PushedData)
 }
 
-fn serialize_push_bytes<SS: SerializeStruct>(
-    bytes: ByteArray,
-    is_minimal_push: bool,
-    serialize_struct: &mut SS,
-) -> Result<(), SS::Error> {
-    use ser::Error;
+fn serialize_push_bytes(bytes: ByteArray, is_minimal_push: bool) -> error::Result<ByteArray> {
     use PushPrefixTail::*;
     let mut vec = Vec::new();
-    let byte_array: ByteArray = match serialize_push_prefix(&mut vec, &bytes, is_minimal_push)
-        .map_err(|err| SS::Error::custom(err.to_string()))?
-    {
-        NoTail => vec.into(),
-        PushedData => ByteArray::new_unnamed(vec).concat(bytes),
-    };
-    *NEXT_BYTE_ARRAY.lock().unwrap() = Some(byte_array);
-    serialize_struct.serialize_field("byte_array", b"ignored")
+    match serialize_push_prefix(&mut vec, &bytes, is_minimal_push)? {
+        NoTail => Ok(vec.into()),
+        PushedData => Ok(ByteArray::new_unnamed(vec).concat(bytes)),
+    }
 }
 
-fn serialize_op<SS: SerializeStruct>(op: &Op, serialize_struct: &mut SS) -> Result<(), SS::Error> {
-    use ser::Error;
+pub fn serialize_op(op: &Op) -> error::Result<ByteArray> {
     use Opcode::*;
-    match *op {
-        Op::Code(opcode) => serialize_struct.serialize_field(opcode.into(), &(opcode as u8)),
-        Op::Invalid(opcode) => serialize_struct.serialize_field("Invalid Opcode", &(opcode as u8)),
-        Op::PushBoolean(boolean) => serialize_struct.serialize_field(
+    Ok(match *op {
+        Op::Code(opcode) => {
+            let name: &str = opcode.into();
+            ByteArray::new(name, vec![opcode as u8])
+        }
+        Op::Invalid(opcode) => ByteArray::new("Invalid Opcode", vec![opcode as u8]),
+        Op::PushBoolean(boolean) => ByteArray::new(
             if boolean { "OP_TRUE" } else { "OP_FALSE" },
-            &(boolean as u8),
+            vec![boolean as u8],
         ),
-        Op::PushInteger(int) => match int {
-            -1 => serialize_op(&Op::Code(OP_1NEGATE), serialize_struct),
-            0 => serialize_op(&Op::Code(OP_0), serialize_struct),
-            1..=16 => serialize_op(
-                &Op::Code(num::FromPrimitive::from_u8(OP_1 as u8 + int as u8 - 1).unwrap()),
-                serialize_struct,
-            ),
-            -0x8000_0000 => Err(SS::Error::custom("Invalid out of range integer")),
-            _ => serialize_push_bytes(encode_int(int).into(), false, serialize_struct),
-        },
+        Op::PushInteger(int) => {
+            let int = int.value();
+            match int {
+                -1 => serialize_op(&Op::Code(OP_1NEGATE))?,
+                0 => serialize_op(&Op::Code(OP_0))?,
+                1..=16 => serialize_op(&Op::Code(
+                    num::FromPrimitive::from_u8(OP_1 as u8 + int as u8 - 1).unwrap(),
+                ))?,
+                -0x8000_0000 => unreachable!("Invalid integer constructed"),
+                _ => serialize_push_bytes(encode_int(int).into(), true)?,
+            }
+        }
         Op::PushByteArray {
             ref array,
             is_minimal,
-        } => serialize_push_bytes(array.clone(), is_minimal, serialize_struct),
-    }
+        } => serialize_push_bytes(array.clone(), is_minimal)?,
+    })
 }
 
-fn serialize_ops<'a, S: Serializer>(
-    ops: impl IntoIterator<Item = &'a Op>,
-    serializer: S,
-) -> Result<S::Ok, S::Error> {
-    let ops = ops.into_iter().collect::<Vec<_>>();
-    let mut serialize_struct = serializer.serialize_struct("script", ops.len())?;
-    for op in ops {
-        serialize_op(op, &mut serialize_struct)?;
-    }
-    serialize_struct.end()
+pub fn serialize_ops<'a>(ops: impl IntoIterator<Item = &'a Op>) -> error::Result<ByteArray> {
+    Ok(ByteArray::from_parts(
+        ops.into_iter()
+            .map(serialize_op)
+            .collect::<Result<Vec<_>, _>>()?,
+    ))
 }
 
 pub fn deserialize_ops(bytes: &[u8]) -> error::Result<Vec<Op>> {
@@ -295,7 +292,14 @@ pub fn deserialize_ops_byte_array(byte_array: ByteArray) -> error::Result<Vec<Op
 
 impl Serialize for Script {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serialize_ops(self.ops.iter().map(|op| &op.op), serializer)
+        use serde::ser::Error;
+        let byte_array = serialize_ops(self.ops.iter().map(|op| &op.op))
+            .map_err(|err| S::Error::custom(&format!("Serialize op error: {}", err)))?;
+        let bytes = Arc::clone(&byte_array.data());
+        if let Ok(mut next_byte_array) = NEXT_BYTE_ARRAY.lock() {
+            *next_byte_array = Some(byte_array);
+        }
+        serializer.serialize_bytes(&bytes)
     }
 }
 

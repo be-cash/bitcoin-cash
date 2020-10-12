@@ -5,6 +5,7 @@ use std::sync::Mutex;
 
 pub trait SerializeExt {
     fn ser(&self) -> ByteArray;
+    fn try_ser(&self) -> Result<ByteArray>;
 }
 
 struct Serializer;
@@ -147,8 +148,15 @@ impl<'a> serde::ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Data> {
+        let byte_array = match NEXT_BYTE_ARRAY.lock() {
+            Ok(mut next_byte_array) => match next_byte_array.take() {
+                Some(next_byte_array) => next_byte_array,
+                None => v.into(),
+            },
+            Err(_) => v.into(),
+        };
         Ok(BA(
-            ByteArray::new("size", encode_var_int(v.len() as u64)).concat(v)
+            ByteArray::new("size", encode_var_int(v.len() as u64)).concat(byte_array)
         ))
     }
 
@@ -404,11 +412,7 @@ impl<'a> serde::ser::SerializeStruct for StructCompound<'a> {
         T: serde::ser::Serialize,
     {
         let byte_array: ByteArray = value.serialize(&mut *self.ser)?.into();
-        let byte_array = match NEXT_BYTE_ARRAY.lock().unwrap().take() {
-            Some(byte_array) => byte_array,
-            None => byte_array.named(key),
-        };
-        self.fields.push(byte_array);
+        self.fields.push(byte_array.named(key));
         Ok(())
     }
 
@@ -441,6 +445,10 @@ impl<T: serde::ser::Serialize> SerializeExt for T {
         self.serialize(&mut Serializer)
             .expect("Unsupported serialization.")
             .into()
+    }
+
+    fn try_ser(&self) -> Result<ByteArray> {
+        self.serialize(&mut Serializer).map(Into::into)
     }
 }
 
