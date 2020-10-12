@@ -49,11 +49,13 @@ pub struct TxBuilder<'b> {
     fee_per_kb: u64,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InputReference<T> {
     phantom: PhantomData<T>,
     input_idx: usize,
 }
+
+impl<T: Clone> Copy for InputReference<T> {}
 
 pub struct UnsignedTx<'b> {
     builder: TxBuilder<'b>,
