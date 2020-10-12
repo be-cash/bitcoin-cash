@@ -21,6 +21,10 @@ impl<O: Ops> TaggedScript<O> {
     pub fn script_ops(&self) -> impl Iterator<Item = &Op> {
         self.tagged_ops.iter().map(|op| &op.op)
     }
+
+    pub fn script(self) -> Script {
+        Script::new(self.tagged_ops)
+    }
 }
 
 impl<O: Ops> Ops for TaggedScript<O> {
