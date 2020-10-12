@@ -1,9 +1,6 @@
 use crate::error::{self, ScriptSerializeError};
-use crate::{
-    encoding_utils::encode_int, serializer::NEXT_BYTE_ARRAY, ByteArray, Op, Opcode, Ops, TaggedOp,
-};
+use crate::{encoding_utils::encode_int, BitcoinCode, ByteArray, Op, Opcode, Ops, TaggedOp};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
 use std::io::Read;
 use std::sync::Arc;
@@ -290,39 +287,21 @@ pub fn deserialize_ops_byte_array(byte_array: ByteArray) -> error::Result<Vec<Op
     Ok(ops)
 }
 
-impl Serialize for Script {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        use serde::ser::Error;
-        let byte_array = serialize_ops(self.ops.iter().map(|op| &op.op))
-            .map_err(|err| S::Error::custom(&format!("Serialize op error: {}", err)))?;
-        let bytes = Arc::clone(&byte_array.data());
-        if let Ok(mut next_byte_array) = NEXT_BYTE_ARRAY.lock() {
-            *next_byte_array = Some(byte_array);
-        }
-        serializer.serialize_bytes(&bytes)
+impl Script {
+    pub fn ser_ops(&self) -> ByteArray {
+        serialize_ops(self.ops.iter().map(|op| &op.op)).expect("Serialize failed")
     }
 }
 
-struct ScriptVisitor;
-
-impl<'de> de::Visitor<'de> for ScriptVisitor {
-    type Value = Vec<TaggedOp>;
-    fn expecting(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(fmt, "a byte array")
+impl BitcoinCode for Script {
+    fn ser(&self) -> ByteArray {
+        self.ser_ops().ser()
     }
 
-    fn visit_bytes<E: de::Error>(self, v: &[u8]) -> Result<Self::Value, E> {
-        let ops = deserialize_ops(v).map_err(|err| E::custom(err.to_string()))?;
-        Ok(ops.into_iter().map(TaggedOp::from_op).collect())
-    }
-}
-
-impl<'de, 'a> Deserialize<'de> for Script {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(Script::new(deserializer.deserialize_bytes(ScriptVisitor)?))
+    fn deser(data: ByteArray) -> error::Result<(Self, ByteArray)> {
+        let (script_code, rest) = ByteArray::deser(data)?;
+        let ops = deserialize_ops_byte_array(script_code)?;
+        Ok((Self::from_ops(ops), rest))
     }
 }
 

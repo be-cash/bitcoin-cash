@@ -1,12 +1,11 @@
 use crate::{
-    encoding_utils::encode_var_int, BitcoinByteArray, BitcoinDataType, ByteArray, DataType, Hashed,
-    Op, Script, SerializeExt, Sha256d, ToPreimages, TxOutpoint,
+    BitcoinByteArray, BitcoinCode, BitcoinDataType, ByteArray, DataType, Hashed, Op, Script,
+    Sha256d, ToPreimages, TxOutpoint,
 };
 use bitflags::bitflags;
-use serde::{Deserialize, Serialize};
 
 bitflags! {
-    #[derive(Deserialize, Serialize, Default)]
+    #[derive(Default)]
     pub struct SigHashFlags: u32 {
         const ALL          = 0x01;
         const NONE         = 0x02;
@@ -18,13 +17,14 @@ bitflags! {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[bitcoin_code(crate = "crate")]
+#[derive(Clone, Debug, Default, BitcoinCode)]
 pub struct TxPreimage {
     pub version: i32,
     pub hash_prevouts: Sha256d,
     pub hash_sequence: Sha256d,
     pub outpoint: TxOutpoint,
-    pub script_code: ByteArray,
+    pub script_code: Script,
     pub value: u64,
     pub sequence: u32,
     pub hash_outputs: Sha256d,
@@ -108,10 +108,7 @@ impl TxPreimage {
                     hash_prevouts,
                     hash_sequence,
                     outpoint: tx.input_outpoint_at(input_idx).clone(),
-                    script_code: tx
-                        .input_lock_script_at(input_idx)
-                        .to_script_code_first()
-                        .ser(),
+                    script_code: tx.input_lock_script_at(input_idx).to_script_code_first(),
                     value: tx.input_value_at(input_idx),
                     sequence: tx.input_sequence_at(input_idx),
                     hash_outputs,
@@ -124,29 +121,7 @@ impl TxPreimage {
         inputs_preimages
     }
 
-    pub fn size_with_script(script_code: &Script) -> usize {
-        struct TxPreimageWithoutScript {
-            _version: i32,
-            _hash_prevouts: Sha256d,
-            _hash_sequence: Sha256d,
-            _outpoint: TxOutpoint,
-            _value: u64,
-            _sequence: u32,
-            _hash_outputs: Sha256d,
-            _lock_time: u32,
-            _sighash_flags: u32,
-        }
-        #[derive(Serialize)]
-        struct TxPreimageOnlyScript<'a> {
-            script_code: &'a Script,
-        }
-        let script_size = TxPreimageOnlyScript { script_code }.ser().len();
-        let rest_size = std::mem::size_of::<TxPreimageWithoutScript>();
-        script_size + rest_size
-    }
-
     pub fn empty_with_script(script_code: &Script) -> TxPreimage {
-        let script_code = script_code.to_script_code_first().ser();
         TxPreimage {
             version: 0,
             hash_prevouts: Sha256d::new([0; 32]).named("hashPrevouts"),
@@ -155,8 +130,7 @@ impl TxPreimage {
                 tx_hash: Sha256d::new([0; 32]),
                 vout: 0,
             },
-            script_code: ByteArray::new("scriptCodeLen", encode_var_int(script_code.len() as u64))
-                .concat(script_code),
+            script_code: script_code.to_script_code_first(),
             value: 0,
             sequence: 0,
             hash_outputs: Sha256d::new([0; 32]).named("hashOutputs"),

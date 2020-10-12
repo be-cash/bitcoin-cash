@@ -461,6 +461,13 @@ impl serde::Serialize for JsonByteArray {
             (_, Some(name_idx), Some(preimage_indices)) => {
                 (self.data_idx, self.function, name_idx, preimage_indices).serialize(serializer)
             }
+            (_, None, Some(preimage_indices)) => (
+                self.data_idx,
+                self.function,
+                self.name_idx,
+                preimage_indices,
+            )
+                .serialize(serializer),
             (_, Some(name_idx), None) => {
                 (self.data_idx, self.function, name_idx).serialize(serializer)
             }

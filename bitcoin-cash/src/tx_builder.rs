@@ -1,6 +1,6 @@
 use crate::error::Result;
 use crate::{
-    error::Error, Ops, Script, SerializeExt, SigHashFlags, TaggedOp, TaggedScript, TxInput,
+    error::Error, BitcoinCode, Ops, Script, SigHashFlags, TaggedOp, TaggedScript, TxInput,
     TxOutpoint, TxOutput, TxPreimage, UnhashedTx,
 };
 use std::any::Any;
@@ -168,7 +168,7 @@ impl<'b> TxBuilder<'b> {
                 .ops()
                 .into();
             if input_script_builder.is_p2sh() {
-                ops.push(TaggedOp::from_op(lock_script.ser().into()));
+                ops.push(TaggedOp::from_op(lock_script.ser_ops().into()));
             }
             Script::new(ops)
         };

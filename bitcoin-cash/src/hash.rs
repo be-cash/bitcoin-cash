@@ -1,6 +1,6 @@
 use crate::{
-    error::Result, BitcoinByteArray, BitcoinDataType, ByteArray, DataType, FixedByteArray,
-    Function, Op,
+    error::Result, BitcoinByteArray, BitcoinCode, BitcoinDataType, ByteArray, DataType,
+    FixedByteArray, Function, Op,
 };
 
 use serde::{Deserialize, Serialize};
@@ -275,6 +275,61 @@ impl Hashed for Hash160 {
     }
 }
 
+impl BitcoinCode for Sha1 {
+    fn ser(&self) -> ByteArray {
+        self.0.ser()
+    }
+
+    fn deser(data: ByteArray) -> Result<(Self, ByteArray)> {
+        let (array, leftover) = FixedByteArray::<[u8; 20]>::deser(data)?;
+        Ok((Sha1(array), leftover))
+    }
+}
+
+impl BitcoinCode for Ripemd160 {
+    fn ser(&self) -> ByteArray {
+        self.0.ser()
+    }
+
+    fn deser(data: ByteArray) -> Result<(Self, ByteArray)> {
+        let (array, leftover) = FixedByteArray::<[u8; 20]>::deser(data)?;
+        Ok((Ripemd160(array), leftover))
+    }
+}
+
+impl BitcoinCode for Sha256 {
+    fn ser(&self) -> ByteArray {
+        self.0.ser()
+    }
+
+    fn deser(data: ByteArray) -> Result<(Self, ByteArray)> {
+        let (array, leftover) = FixedByteArray::<[u8; 32]>::deser(data)?;
+        Ok((Sha256(array), leftover))
+    }
+}
+
+impl BitcoinCode for Sha256d {
+    fn ser(&self) -> ByteArray {
+        self.0.ser()
+    }
+
+    fn deser(data: ByteArray) -> Result<(Self, ByteArray)> {
+        let (array, leftover) = FixedByteArray::<[u8; 32]>::deser(data)?;
+        Ok((Sha256d(array), leftover))
+    }
+}
+
+impl BitcoinCode for Hash160 {
+    fn ser(&self) -> ByteArray {
+        self.0.ser()
+    }
+
+    fn deser(data: ByteArray) -> Result<(Self, ByteArray)> {
+        let (array, leftover) = FixedByteArray::<[u8; 20]>::deser(data)?;
+        Ok((Hash160(array), leftover))
+    }
+}
+
 impl BitcoinDataType for Sha1 {
     type Type = BitcoinByteArray;
     fn to_data(&self) -> Self::Type {
@@ -369,7 +424,7 @@ impl From<Hash160> for ByteArray {
 #[cfg(test)]
 mod tests {
     use super::{Hash160, Hashed, Result, Ripemd160, Sha1, Sha256, Sha256d};
-    use crate::error::Error;
+    use crate::{error::Error, ByteArrayError};
     use hex_literal::hex;
 
     #[test]
@@ -378,10 +433,10 @@ mod tests {
         assert_eq!(Sha1::digest(b"").as_slice(), EMPTY_SHA1);
         assert_eq!(Sha1::digest(b""), Sha1::from_slice(&EMPTY_SHA1)?);
         assert_eq!(
-            Error::InvalidSize {
+            Error::ByteArrayError(ByteArrayError::InvalidSlice {
                 expected: 20,
                 actual: 2,
-            }
+            })
             .to_string(),
             Sha1::from_slice(&[0, 0]).unwrap_err().to_string(),
         );
@@ -413,10 +468,10 @@ mod tests {
             Ripemd160::from_slice(&EMPTY_RIPEMD)?
         );
         assert_eq!(
-            Error::InvalidSize {
+            Error::ByteArrayError(ByteArrayError::InvalidSlice {
                 expected: 20,
                 actual: 2,
-            }
+            })
             .to_string(),
             Ripemd160::from_slice(&[0, 0]).unwrap_err().to_string(),
         );
@@ -452,10 +507,10 @@ mod tests {
         assert_eq!(Sha256::digest(b"").as_slice(), EMPTY_SHA256);
         assert_eq!(Sha256::digest(b""), Sha256::from_slice(&EMPTY_SHA256)?);
         assert_eq!(
-            Error::InvalidSize {
+            Error::ByteArrayError(ByteArrayError::InvalidSlice {
                 expected: 32,
                 actual: 2,
-            }
+            })
             .to_string(),
             Sha256::from_slice(&[0, 0]).unwrap_err().to_string(),
         );
@@ -487,10 +542,10 @@ mod tests {
         assert_eq!(Sha256d::digest(b"").as_slice(), EMPTY_SHA256D);
         assert_eq!(Sha256d::digest(b""), Sha256d::from_slice(&EMPTY_SHA256D)?);
         assert_eq!(
-            Error::InvalidSize {
+            Error::ByteArrayError(ByteArrayError::InvalidSlice {
                 expected: 32,
                 actual: 2,
-            }
+            })
             .to_string(),
             Sha256d::from_slice(&[0, 0]).unwrap_err().to_string(),
         );
@@ -524,10 +579,10 @@ mod tests {
         assert_eq!(Hash160::digest(b"").as_slice(), EMPTY_HASH160);
         assert_eq!(Hash160::digest(b""), Hash160::from_slice(&EMPTY_HASH160)?);
         assert_eq!(
-            Error::InvalidSize {
+            Error::ByteArrayError(ByteArrayError::InvalidSlice {
                 expected: 20,
                 actual: 2,
-            }
+            })
             .to_string(),
             Hash160::from_slice(&[0, 0]).unwrap_err().to_string(),
         );

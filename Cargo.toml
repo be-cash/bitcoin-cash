@@ -3,6 +3,7 @@
 members = [
     "bitcoin-cash",
     "bitcoin-cash-base",
+    "bitcoin-cash-code",
     "bitcoin-cash-ecc",
     "bitcoin-cash-script-macro",
     "bitcoin-cash-slp",

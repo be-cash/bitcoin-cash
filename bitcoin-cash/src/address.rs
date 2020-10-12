@@ -2,7 +2,7 @@ use num_derive::*;
 use std::borrow::Cow;
 
 use crate::error::{Error, Result};
-use crate::{Hash160, Hashed, Pubkey, Script, SerializeExt};
+use crate::{Hash160, Hashed, Pubkey, Script};
 
 const CHARSET: &[u8] = b"qpzry9x8gf2tvdw0s3jn54khce6mua7l";
 
@@ -134,7 +134,7 @@ impl<'a> Address<'a> {
         Ok(Address::from_hash(
             prefix,
             AddressType::P2SH,
-            Hash160::digest(redeem_script.ser()),
+            Hash160::digest(redeem_script.ser_ops()),
         ))
     }
 

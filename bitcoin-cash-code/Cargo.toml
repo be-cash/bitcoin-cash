@@ -1,0 +1,21 @@
+[package]
+name = "bitcoin-cash-code"
+version = "0.1.0"
+authors = ["tobiasruck <ruck.tobias@gmail.com>"]
+edition = "2018"
+license = "MIT"
+description = "A procedual macro for serializing Bitcoin Cash structures"
+homepage = "https://github.com/be-cash/bitcoin-cash"
+documentation = "https://github.com/be-cash/bitcoin-cash"
+repository = "https://github.com/be-cash/bitcoin-cash"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = {version="1.0", features=["full"]}
+quote = "1.0"
+proc-macro2 = "1.0"
+
+[dev-dependencies]
+bitcoin-cash = {path="../bitcoin-cash", version="0"}

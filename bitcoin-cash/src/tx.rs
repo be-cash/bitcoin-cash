@@ -1,42 +1,45 @@
 use crate::{
-    ByteArray, Hashed, Script, SerializeExt, Sha256d, SigHashFlags, ToPreimages, TxPreimage,
+    BitcoinCode, ByteArray, Hashed, Script, Sha256d, SigHashFlags, ToPreimages, TxPreimage,
 };
-use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_SEQUENCE: u32 = 0xffff_ffff;
 // Mark Lundeberg: "71 bytes for the DER, but then +1 for the hashtype,
 // so 72 bytes for the full tx signature."
 pub const MAX_SIGNATURE_SIZE: usize = 72;
 
-#[derive(Deserialize, Serialize, PartialEq, Debug, Clone, Default)]
+#[bitcoin_code(crate = "crate")]
+#[derive(BitcoinCode, PartialEq, Debug, Clone, Default)]
 pub struct TxOutpoint {
     pub tx_hash: Sha256d,
     pub vout: u32,
 }
 
-#[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+#[bitcoin_code(crate = "crate")]
+#[derive(BitcoinCode, PartialEq, Debug, Clone)]
 pub struct TxInput {
     pub prev_out: TxOutpoint,
     pub script: Script,
     pub sequence: u32,
 
-    #[serde(skip)]
+    #[bitcoin_code(skip)]
     pub lock_script: Option<Script>,
 
-    #[serde(skip)]
+    #[bitcoin_code(skip)]
     pub value: Option<u64>,
 
-    #[serde(skip)]
+    #[bitcoin_code(skip)]
     pub is_p2sh: Option<bool>,
 }
 
-#[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+#[bitcoin_code(crate = "crate")]
+#[derive(BitcoinCode, PartialEq, Debug, Clone)]
 pub struct TxOutput {
     pub value: u64,
     pub script: Script,
 }
 
-#[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+#[bitcoin_code(crate = "crate")]
+#[derive(BitcoinCode, PartialEq, Debug, Clone)]
 pub struct UnhashedTx {
     pub version: i32,
     pub inputs: Vec<TxInput>,
@@ -44,12 +47,13 @@ pub struct UnhashedTx {
     pub lock_time: u32,
 }
 
-#[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+#[bitcoin_code(crate = "crate")]
+#[derive(BitcoinCode, PartialEq, Debug, Clone)]
 pub struct Tx {
-    #[serde(skip)]
+    #[bitcoin_code(skip)]
     unhashed_tx: UnhashedTx,
 
-    #[serde(skip)]
+    #[bitcoin_code(skip)]
     hash: Sha256d,
 
     raw: ByteArray,

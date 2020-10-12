@@ -23,6 +23,18 @@ pub enum Function {
     Reverse,
 }
 
+#[derive(Error, Debug)]
+pub enum ByteArrayError {
+    #[error("Index {split_idx} is out of bounds for array with length {len}")]
+    InvalidSplit { split_idx: usize, len: usize },
+    #[error("Invalid slice, expected {expected} but got {actual}.")]
+    InvalidSlice { expected: usize, actual: usize },
+    #[error("int={int} not valid for n_bytes={n_bytes}")]
+    FromIntegerError { int: Integer, n_bytes: Integer },
+    #[error("Leftover bytes: {bytes}")]
+    LeftoverBytes { bytes: ByteArray },
+}
+
 #[derive(Clone, Debug)]
 pub struct ByteArray {
     data: Arc<[u8]>,
@@ -38,12 +50,6 @@ pub struct ByteArray {
 pub struct FixedByteArray<T> {
     phantom: PhantomData<T>,
     byte_array: ByteArray,
-}
-
-#[derive(Clone, Debug)]
-pub struct FromSliceError {
-    pub expected: usize,
-    pub actual: usize,
 }
 
 impl Function {
@@ -283,14 +289,12 @@ impl ByteArray {
     }
 
     #[cfg(not(feature = "simple-bytearray"))]
-    pub fn split(self, at: usize) -> Result<(ByteArray, ByteArray), String> {
+    pub fn split(self, at: usize) -> Result<(ByteArray, ByteArray), ByteArrayError> {
         if self.data.len() < at {
-            return Err(format!(
-                "Index {} is out of bounds for array with length {}, {}.",
-                at,
-                self.data.len(),
-                hex::encode(&self.data)
-            ));
+            return Err(ByteArrayError::InvalidSplit {
+                split_idx: at,
+                len: self.data.len(),
+            });
         }
         let mut data = self.data.to_vec();
         let other = data.split_off(at);
@@ -348,7 +352,7 @@ impl ByteArray {
     }
 
     #[cfg(feature = "simple-bytearray")]
-    pub fn split(self, at: usize) -> Result<(ByteArray, ByteArray), String> {
+    pub fn split(self, at: usize) -> Result<(ByteArray, ByteArray), ByteArrayError> {
         if self.data.len() < at {
             return Err(format!(
                 "Index {} is out of bounds for array with length {}, {}.",
@@ -399,28 +403,28 @@ impl ByteArray {
     }
 
     #[allow(clippy::comparison_chain)]
-    pub fn from_int(int: Integer, n_bytes: Integer) -> Result<Self, String> {
-        let int = int.value();
-        let n_bytes = n_bytes.value();
-        if n_bytes <= 0 {
-            return Err(format!("n_bytes={} not valid", n_bytes));
+    pub fn from_int(int: Integer, n_bytes: Integer) -> Result<Self, ByteArrayError> {
+        let inner_int = int.value();
+        let inner_n_bytes = n_bytes.value();
+        if inner_n_bytes <= 0 {
+            return Err(ByteArrayError::FromIntegerError { int, n_bytes });
         }
-        let max_bits = (n_bytes * 8 - 1).min(31) as u128;
+        let max_bits = (inner_n_bytes * 8 - 1).min(31) as u128;
         let max_num: u128 = 1 << max_bits;
         let max_num = (max_num - 1) as InnerInteger;
         let min_num = -max_num;
-        if int < min_num || int > max_num {
-            return Err(format!("int={} not valid for n_bytes={}", int, n_bytes));
+        if inner_int < min_num || inner_int > max_num {
+            return Err(ByteArrayError::FromIntegerError { int, n_bytes });
         }
         let mut bytes = Vec::new();
-        bytes.write_i32::<LittleEndian>(int.abs()).unwrap();
-        let n_bytes = n_bytes as usize;
+        bytes.write_i32::<LittleEndian>(inner_int.abs()).unwrap();
+        let n_bytes = inner_n_bytes as usize;
         if bytes.len() < n_bytes {
             bytes.append(&mut vec![0; n_bytes - bytes.len()]);
         } else if bytes.len() > n_bytes {
             bytes.drain(n_bytes..);
         }
-        if int < 0 {
+        if inner_int < 0 {
             let len = bytes.len();
             bytes[len - 1] |= 0x80;
         }
@@ -481,10 +485,10 @@ where
     pub fn from_slice(
         name: impl Into<Cow<'static, str>>,
         slice: &[u8],
-    ) -> Result<Self, FromSliceError> {
+    ) -> Result<Self, ByteArrayError> {
         let array = T::default();
         if array.as_ref().len() != slice.len() {
-            return Err(FromSliceError {
+            return Err(ByteArrayError::InvalidSlice {
                 expected: array.as_ref().len(),
                 actual: slice.len(),
             });
@@ -500,10 +504,10 @@ where
         })
     }
 
-    pub fn from_slice_unnamed(slice: &[u8]) -> Result<Self, FromSliceError> {
+    pub fn from_slice_unnamed(slice: &[u8]) -> Result<Self, ByteArrayError> {
         let array = T::default();
         if array.as_ref().len() != slice.len() {
-            return Err(FromSliceError {
+            return Err(ByteArrayError::InvalidSlice {
                 expected: array.as_ref().len(),
                 actual: slice.len(),
             });
@@ -514,10 +518,10 @@ where
         })
     }
 
-    pub fn from_byte_array(byte_array: ByteArray) -> Result<Self, FromSliceError> {
+    pub fn from_byte_array(byte_array: ByteArray) -> Result<Self, ByteArrayError> {
         let array = T::default();
         if array.as_ref().len() != byte_array.len() {
-            return Err(FromSliceError {
+            return Err(ByteArrayError::InvalidSlice {
                 expected: array.as_ref().len(),
                 actual: byte_array.len(),
             });

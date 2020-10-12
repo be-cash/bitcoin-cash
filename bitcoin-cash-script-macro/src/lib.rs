@@ -15,7 +15,7 @@ use quote::quote;
 
 /// Write complex Bitcoin Cash scripts using this macro:
 /// ```
-/// use bitcoin_cash::{Opcode::*, Address, ByteArray, Hashed, SerializeExt};
+/// use bitcoin_cash::{Opcode::*, Address, ByteArray, Hashed, BitcoinCode};
 /// struct Params {
 ///   address: Address<'static>,
 /// }
