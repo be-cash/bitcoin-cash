@@ -149,7 +149,7 @@ pub fn serialize_op(op: &Op) -> error::Result<ByteArray> {
         Op::Invalid(opcode) => ByteArray::new("Invalid Opcode", vec![opcode as u8]),
         Op::PushBoolean(boolean) => ByteArray::new(
             if boolean { "OP_TRUE" } else { "OP_FALSE" },
-            vec![boolean as u8],
+            vec![if boolean { OP_1 as u8 } else { OP_0 as u8 }],
         ),
         Op::PushInteger(int) => {
             let int = int.value();
