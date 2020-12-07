@@ -148,11 +148,11 @@ impl<'b> TxBuilder<'b> {
         &mut self,
         input: impl Into<UnsignedTxInput>,
         lock_script: TaggedScript<S::Script>,
-        input_script_builder: S,
+        input_signatory: S,
     ) -> InputReference<S> {
-        let sig_hash_flags = input_script_builder.sig_hash_flags();
+        let sig_hash_flags = input_signatory.sig_hash_flags();
         let sig_hash_flags = <S::Kind as SignatoryKind>::sig_hash_flags_vec(sig_hash_flags);
-        let is_p2sh = input_script_builder.is_p2sh();
+        let is_p2sh = input_signatory.is_p2sh();
         let func = move |tx_preimages: &[TxPreimage],
                          estimated_size: Option<usize>,
                          sigs: Option<Box<dyn Any>>,
@@ -160,14 +160,14 @@ impl<'b> TxBuilder<'b> {
                          tx_outputs: &[TxOutput]| {
             let sigs = match sigs {
                 Some(sigs) => *sigs.downcast::<S::Signatures>().expect("Incompatible sigs"),
-                None => input_script_builder.placeholder_signatures(),
+                None => input_signatory.placeholder_signatures(),
             };
             let tx_preimages = <S::Kind as SignatoryKind>::make_tx_preimages(tx_preimages);
-            let mut ops: Vec<_> = input_script_builder
+            let mut ops: Vec<_> = input_signatory
                 .build_script(tx_preimages, estimated_size, sigs, lock_script, tx_outputs)
                 .ops()
                 .into();
-            if input_script_builder.is_p2sh() {
+            if input_signatory.is_p2sh() {
                 ops.push(TaggedOp::from_op(lock_script.ser_ops().into()));
             }
             Script::new(ops)
