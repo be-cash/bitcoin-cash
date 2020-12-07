@@ -59,6 +59,19 @@ pub struct Tx {
     raw: ByteArray,
 }
 
+impl TxInput {
+    pub fn new(prev_out: TxOutpoint, script: Script, sequence: u32) -> Self {
+        TxInput {
+            prev_out,
+            script,
+            sequence,
+            lock_script: None,
+            value: None,
+            is_p2sh: None,
+        }
+    }
+}
+
 impl UnhashedTx {
     pub fn preimages(&self, sig_hash_flags: &[SigHashFlags]) -> Vec<Vec<TxPreimage>> {
         TxPreimage::build_preimages(&SigTxPreimage {
