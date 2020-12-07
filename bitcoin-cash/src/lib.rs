@@ -18,6 +18,7 @@ mod tagged_op;
 mod tx;
 mod tx_builder;
 mod tx_preimage;
+mod sequence;
 
 pub use address::{Address, AddressType, Prefix};
 pub use bitcoin_code::*;
@@ -34,6 +35,7 @@ pub use tagged_op::*;
 pub use tx::*;
 pub use tx_builder::*;
 pub use tx_preimage::*;
+pub use sequence::*;
 
 pub use bitcoin_cash_base::*;
 pub use bitcoin_cash_code::*;
