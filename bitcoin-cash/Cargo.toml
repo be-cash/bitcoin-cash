@@ -1,6 +1,6 @@
 [package]
 name = "bitcoin-cash"
-version = "0.2.3"
+version = "1.0.0-beta.0"
 authors = ["tobiasruck <ruck.tobias@gmail.com>"]
 edition = "2018"
 license = "MIT"
@@ -10,9 +10,9 @@ documentation = "https://github.com/be-cash/bitcoin-cash"
 repository = "https://github.com/be-cash/bitcoin-cash"
 
 [dependencies]
-bitcoin-cash-script-macro = {path="../bitcoin-cash-script-macro", version="0.2.0"}
-bitcoin-cash-code = {path="../bitcoin-cash-code", version="0.1.0"}
-bitcoin-cash-base = {path="../bitcoin-cash-base", version="0.2.0"}
+bitcoin-cash-script-macro = {path="../bitcoin-cash-script-macro", version="1.0.0-beta.0"}
+bitcoin-cash-code = {path="../bitcoin-cash-code", version="1.0.0-beta.0"}
+bitcoin-cash-base = {path="../bitcoin-cash-base", version="1.0.0-beta.0"}
 
 hex = "0.4"
 hex-literal = "0.3"
