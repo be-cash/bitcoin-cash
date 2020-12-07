@@ -122,14 +122,13 @@ fn test_inputs() {
 
 #[test]
 fn test_let() {
-    #[derive(Clone)]
     struct Params {
         hyperfine_structure: Integer,
     }
 
     let line = line!() + 2;
     #[bitcoin_cash::script(Inputs)]
-    fn script(params: Params, alpha: Integer, beta: Integer) {
+    fn script(params: &Params, alpha: Integer, beta: Integer) {
         let hyperfine_structure = params.hyperfine_structure * 1000;
         let circumference = OP_ADD(beta, hyperfine_structure);
         let relative_velocity = OP_ADD(alpha, circumference);
@@ -147,7 +146,7 @@ fn test_let() {
     };
 
     assert_eq!(
-        params.clone().script().ops().as_ref(),
+        params.script().ops().as_ref(),
         &[
             TaggedOp {
                 src_code: vec![
@@ -425,7 +424,6 @@ fn test_if() {
 
 #[test]
 fn test_params() {
-    #[derive(Clone)]
     struct Params {
         p1: i32,
         p2: Vec<u8>,
@@ -433,7 +431,7 @@ fn test_params() {
     }
 
     #[bitcoin_cash::script(Inputs)]
-    fn script(params: Params, a: i32, b: bool, c: [u8; 32]) {
+    fn script(params: &Params, a: i32, b: bool, c: [u8; 32]) {
         let p2 = params.p2;
         let c = OP_CAT(c, p2);
         let c = OP_BIN2NUM(c);
@@ -464,7 +462,7 @@ fn test_params() {
     };
 
     assert_eq!(
-        &params.clone().script().script_ops().collect::<Vec<_>>(),
+        &params.script().script_ops().collect::<Vec<_>>(),
         &[
             &Op::from_array(params.p2),
             &Op::Code(OP_CAT),

@@ -139,7 +139,6 @@ impl GenerateScript {
         let vis = script.vis;
         let mut sig = script.sig.clone();
         let mut inputs = Punctuated::new();
-        let param_type = &script.param_type;
         inputs.push(sig.inputs[0].clone());
         sig.ident = syn::Ident::new(&format!("__impl_{}", sig.ident), sig.ident.span());
         sig.inputs = inputs;
@@ -155,6 +154,13 @@ impl GenerateScript {
                 _ => panic!("Generic const not supported"),
             }));
         let script_ident = &self.script_ident;
+
+        let (param_type, self_ref_tokens) = match &*script.param_type {
+            syn::Type::Reference(type_reference) => {
+                (&*type_reference.elem, quote!{&})
+            },
+            otherwise => (&*otherwise, quote!{}),
+        };
 
         let struct_enum_docs = &script.docs.input_struct;
         let (input_struct_enum, impl_ops) = if script.script_variants.is_empty() {
@@ -259,7 +265,7 @@ impl GenerateScript {
                     return #crate_ident::TaggedScript::new(#script_ident);
                 }
 
-                #vis fn #pub_func_name(self) -> #crate_ident::TaggedScript<#input_struct> {
+                #vis fn #pub_func_name(#self_ref_tokens self) -> #crate_ident::TaggedScript<#input_struct> {
                     Self::#hidden_func_name(self)
                 }
             }
