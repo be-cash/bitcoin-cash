@@ -144,6 +144,20 @@ impl<'b> TxBuilder<'b> {
         }
     }
 
+    pub fn from_inputless_tx(tx: &UnhashedTx) -> TxBuilder<'static> {
+        TxBuilder {
+            version: tx.version,
+            inputs: Vec::new(),
+            outputs: tx.outputs.iter().cloned().map(TxBuilderOutput::KnownValue).collect(),
+            lock_time: tx.lock_time,
+            fee_per_kb: DEFAULT_FEE_PER_KB,
+        }
+    }
+
+    pub fn set_fee_per_kb(&mut self, fee_per_kb: u64) {
+        self.fee_per_kb = fee_per_kb;
+    }
+
     pub fn add_input<S: Signatory + 'b + Sync + Send>(
         &mut self,
         input: impl Into<UnsignedTxInput>,
@@ -271,16 +285,8 @@ impl<'b> TxBuilder<'b> {
     }
 
     pub fn build(self) -> Result<UnsignedTx<'b>> {
-        let known_output_amount = self
-            .outputs
-            .iter()
-            .map(|output| output.get_value())
-            .sum::<u64>();
-        let total_input_amount = self
-            .inputs
-            .iter()
-            .map(|input| input.input.value)
-            .sum::<u64>();
+        let known_output_amount = self.known_output_sum();
+        let total_input_amount = self.input_sum();
         if known_output_amount > total_input_amount {
             return Err(Error::InsufficientInputAmount {
                 amount: known_output_amount - total_input_amount,
@@ -337,6 +343,22 @@ impl<'b> TxBuilder<'b> {
             outputs: &outputs,
         });
         Ok(UnsignedTx::new(outputs, self, tx_preimages, estimated_size))
+    }
+
+    pub fn known_output_sum(&self) -> u64 {
+        self
+            .outputs
+            .iter()
+            .map(|output| output.get_value())
+            .sum::<u64>()
+    }
+
+    pub fn input_sum(&self) -> u64 {
+        self
+            .inputs
+            .iter()
+            .map(|input| input.input.value)
+            .sum::<u64>()
     }
 }
 
@@ -454,6 +476,14 @@ impl<'b> UnsignedTx<'b> {
             outputs: self.outputs,
             lock_time: self.builder.lock_time,
         }
+    }
+
+    pub fn into_tx_builder(self) -> TxBuilder<'b> {
+        self.builder
+    }
+
+    pub fn estimated_size(&self) -> usize {
+        self.estimated_size
     }
 }
 
