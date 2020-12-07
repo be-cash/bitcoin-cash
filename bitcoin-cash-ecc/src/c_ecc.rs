@@ -4,8 +4,9 @@ use bitcoin_cash::{
 };
 use secp256k1::{All, Message, PublicKey, Secp256k1, SecretKey, Signature};
 
+#[derive(Clone)]
 pub struct CECC {
-    curve: Secp256k1<All>,
+    pub curve: Secp256k1<All>,
 }
 
 impl Default for CECC {
