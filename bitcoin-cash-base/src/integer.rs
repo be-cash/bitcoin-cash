@@ -41,7 +41,7 @@ pub enum IntegerError {
     CastOverflowI128,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Ord)]
 pub struct Integer(InnerInteger);
 
 #[derive(Debug, Copy, Clone)]
@@ -170,6 +170,152 @@ impl From<InnerInteger> for IntegerResult {
 impl From<std::convert::Infallible> for IntegerError {
     fn from(_: std::convert::Infallible) -> Self {
         unreachable!("Impossible value")
+    }
+}
+
+impl From<i8> for Integer {
+    fn from(int: i8) -> Self {
+        Integer(int.into())
+    }
+}
+
+impl From<u8> for Integer {
+    fn from(int: u8) -> Self {
+        Integer(int.into())
+    }
+}
+
+impl From<i16> for Integer {
+    fn from(int: i16) -> Self {
+        Integer(int.into())
+    }
+}
+
+impl From<u16> for Integer {
+    fn from(int: u16) -> Self {
+        Integer(int.into())
+    }
+}
+
+impl From<i8> for IntegerResult {
+    fn from(int: i8) -> Self {
+        IntegerResult(Ok(int.into()))
+    }
+}
+
+impl From<u8> for IntegerResult {
+    fn from(int: u8) -> Self {
+        IntegerResult(Ok(int.into()))
+    }
+}
+
+impl From<i16> for IntegerResult {
+    fn from(int: i16) -> Self {
+        IntegerResult(Ok(int.into()))
+    }
+}
+
+impl From<u16> for IntegerResult {
+    fn from(int: u16) -> Self {
+        IntegerResult(Ok(int.into()))
+    }
+}
+
+impl From<u32> for IntegerResult {
+    fn from(int: u32) -> Self {
+        IntegerResult::new(int)
+    }
+}
+
+impl From<i64> for IntegerResult {
+    fn from(int: i64) -> Self {
+        IntegerResult::new(int)
+    }
+}
+
+impl From<u64> for IntegerResult {
+    fn from(int: u64) -> Self {
+        IntegerResult::new(int)
+    }
+}
+
+impl From<i128> for IntegerResult {
+    fn from(int: i128) -> Self {
+        IntegerResult::new(int)
+    }
+}
+
+impl From<u128> for IntegerResult {
+    fn from(int: u128) -> Self {
+        IntegerResult::new(int)
+    }
+}
+
+impl From<isize> for IntegerResult {
+    fn from(int: isize) -> Self {
+        IntegerResult::new(int)
+    }
+}
+
+impl From<usize> for IntegerResult {
+    fn from(int: usize) -> Self {
+        IntegerResult::new(int)
+    }
+}
+
+impl TryFrom<u32> for Integer {
+    type Error = IntegerError;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        Integer::new(value)
+    }
+}
+
+impl TryFrom<i64> for Integer {
+    type Error = IntegerError;
+
+    fn try_from(value: i64) -> Result<Self, Self::Error> {
+        Integer::new(value)
+    }
+}
+
+impl TryFrom<u64> for Integer {
+    type Error = IntegerError;
+
+    fn try_from(value: u64) -> Result<Self, Self::Error> {
+        Integer::new(value)
+    }
+}
+
+impl TryFrom<i128> for Integer {
+    type Error = IntegerError;
+
+    fn try_from(value: i128) -> Result<Self, Self::Error> {
+        Integer::new(value)
+    }
+}
+
+impl TryFrom<u128> for Integer {
+    type Error = IntegerError;
+
+    fn try_from(value: u128) -> Result<Self, Self::Error> {
+        Integer::new(value)
+    }
+}
+
+impl TryFrom<isize> for Integer {
+    type Error = IntegerError;
+
+    fn try_from(value: isize) -> Result<Self, Self::Error> {
+        Integer::new(value)
+    }
+}
+
+impl TryFrom<usize> for Integer {
+    type Error = IntegerError;
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        Integer::new(value)
     }
 }
 
