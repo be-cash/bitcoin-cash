@@ -123,8 +123,13 @@ impl std::fmt::Display for SlpTxType {
 }
 
 impl TokenId {
+    #[deprecated]
     pub fn from_slice(token_id: &[u8]) -> error::Result<Self> {
         Ok(TokenId(Sha256d::from_slice_le(token_id)?))
+    }
+
+    pub fn from_hash(hash: Sha256d) -> Self {
+        TokenId(hash)
     }
 
     pub fn as_slice_be(&self) -> &[u8] {
