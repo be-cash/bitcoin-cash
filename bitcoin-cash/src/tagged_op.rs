@@ -1,7 +1,7 @@
 use crate::Op;
 use std::borrow::Cow;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct TaggedOp {
     pub op: Op,
     pub src_file: Cow<'static, str>,
@@ -28,5 +28,11 @@ impl TaggedOp {
     pub fn named(mut self, name: impl Into<Cow<'static, str>>) -> TaggedOp {
         self.pushed_names = Some(vec![Some(name.into())]);
         self
+    }
+}
+
+impl PartialEq for TaggedOp {
+    fn eq(&self, other: &Self) -> bool {
+        self.op == other.op
     }
 }
