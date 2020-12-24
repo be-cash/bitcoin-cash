@@ -219,10 +219,8 @@ pub fn deserialize_ops(bytes: &[u8]) -> error::Result<Vec<Op>> {
         let mut prefix = Vec::new();
         serialize_push_prefix(&mut prefix, &vec, true)?;
         let mut op: Op = ByteArray::new_unnamed(vec).into();
-        if prefix[0] == byte {
-            if let Op::PushByteArray { is_minimal, .. } = &mut op {
-                *is_minimal = false;
-            }
+        if let Op::PushByteArray { is_minimal, .. } = &mut op {
+            *is_minimal = prefix[0] == byte;
         }
         ops.push(op);
     }
@@ -276,10 +274,8 @@ pub fn deserialize_ops_byte_array(byte_array: ByteArray) -> error::Result<Vec<Op
         let mut prefix = Vec::new();
         serialize_push_prefix(&mut prefix, &pushed, true)?;
         let mut op: Op = pushed.into();
-        if prefix[0] == byte {
-            if let Op::PushByteArray { is_minimal, .. } = &mut op {
-                *is_minimal = false;
-            }
+        if let Op::PushByteArray { is_minimal, .. } = &mut op {
+            *is_minimal = prefix[0] == byte;
         }
         ops.push(op);
         byte_array = Some(remainder);
