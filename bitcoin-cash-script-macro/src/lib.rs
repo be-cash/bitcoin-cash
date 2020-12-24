@@ -59,6 +59,7 @@ pub fn script(
         stmt_idx: 0,
         max_line_widths: vec![30, 40, 60, 80],
         formatted_lines: vec![],
+        enable_debug: false,
     };
     let result = generate_script.run(parsed_script);
     result.into()

@@ -9,7 +9,7 @@ pub fn parse_script(
     attrs: syn::AttributeArgs,
     func: syn::ItemFn,
 ) -> Result<ir::Script, syn::Error> {
-    let (input_struct, crate_ident, script_variants) =
+    let (input_struct, crate_ident, script_variants, enable_debug) =
         parse_attrs(attrs).map_err(|msg| syn::Error::new(func.sig.span(), &msg))?;
     if let syn::ReturnType::Default = func.sig.output {
     } else {
@@ -31,6 +31,7 @@ pub fn parse_script(
         sig: func.sig,
         stmts: parse_stmts(func.block.stmts)?,
         docs,
+        enable_debug: enable_debug.unwrap_or(true),
     })
 }
 
@@ -74,7 +75,7 @@ fn single_path(path: &syn::Path) -> Result<syn::Ident, ()> {
 
 fn parse_attrs(
     attrs: syn::AttributeArgs,
-) -> Result<(syn::Ident, Option<syn::Ident>, Vec<ir::ScriptVariant>), String> {
+) -> Result<(syn::Ident, Option<syn::Ident>, Vec<ir::ScriptVariant>, Option<bool>), String> {
     if attrs.is_empty() {
         return Err("Must provide at least input struct name".into());
     }
@@ -86,6 +87,7 @@ fn parse_attrs(
     };
     let mut variants = Vec::new();
     let mut crate_name = None;
+    let mut debug = None;
     for attr in attrs.into_iter().skip(1) {
         if let syn::NestedMeta::Meta(syn::Meta::NameValue(variant)) = attr {
             let name = single_path(&variant.path).map_err(|_| "Variant cannot have a module")?;
@@ -95,6 +97,9 @@ fn parse_attrs(
                         .ok_or_else(|| "Invalid crate name, must be string.".to_string())?,
                     name.span(),
                 ));
+            } else if &name.to_string() == "debug" {
+                debug = Some(parse_bool_lit(&variant.lit)
+                    .ok_or_else(|| "Invalid debug, must be bool.".to_string())?);
             } else {
                 variants.push(ir::ScriptVariant {
                     name,
@@ -107,7 +112,7 @@ fn parse_attrs(
             );
         }
     }
-    Ok((input_struct, crate_name, variants))
+    Ok((input_struct, crate_name, variants, debug))
 }
 
 fn parse_docs(
@@ -169,6 +174,14 @@ fn parse_doc_attribute(attr: &syn::Attribute) -> Option<String> {
 fn parse_string_lit(lit: &syn::Lit) -> Option<String> {
     if let syn::Lit::Str(predicate_str) = lit {
         Some(predicate_str.value())
+    } else {
+        None
+    }
+}
+
+fn parse_bool_lit(lit: &syn::Lit) -> Option<bool> {
+    if let syn::Lit::Bool(lit_bool) = lit {
+        Some(lit_bool.value)
     } else {
         None
     }

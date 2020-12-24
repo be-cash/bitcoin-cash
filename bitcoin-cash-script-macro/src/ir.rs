@@ -13,6 +13,7 @@ pub struct Script {
     pub inputs: Vec<ScriptInput>,
     pub stmts: Vec<TaggedStmt>,
     pub docs: ScriptDocs,
+    pub enable_debug: bool,
 }
 
 pub struct ScriptDocs {

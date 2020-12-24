@@ -19,6 +19,7 @@ pub struct GenerateScript {
     pub stmt_idx: usize,
     pub max_line_widths: Vec<u32>,
     pub formatted_lines: Vec<Vec<String>>,
+    pub enable_debug: bool,
 }
 
 impl GenerateScript {
@@ -32,6 +33,7 @@ impl GenerateScript {
     fn run_script(&mut self, script: Result<ir::Script, Error>) -> Result<TokenStream, Error> {
         let script = script?;
         let stmt_token_streams = make_stmt_token_streams(&script.stmts);
+        self.enable_debug = script.enable_debug;
         let mut new_stmts = Vec::with_capacity(script.stmts.len());
         let mut struct_fields = Vec::with_capacity(script.inputs.len());
         let mut enum_variant_fields = HashMap::with_capacity(script.script_variants.len());
@@ -84,17 +86,13 @@ impl GenerateScript {
                     (#max_line_width, #source.into())
                 }
             });
-            impl_pushops.push(quote! {
-                #crate_ident::TaggedOp {
-                    op: self.#ident.to_pushop(),
-                    src_file: file!().into(),
-                    src_line: line!(),
-                    src_column: column!(),
-                    src_code: vec![#(#src_code),*],
-                    pushed_names: Some(vec![Some(#ident_str.into())]),
-                    alt_pushed_names: Some(vec![]),
-                }
-            });
+            impl_pushops.push(self.make_tagged_op(
+                &crate_ident,
+                &quote!{self.#ident.to_pushop()},
+                src_code,
+                vec![quote!{Some(#ident_str.into())}],
+                vec![],
+            ));
             let stack_item = StackItem {
                 ident: input.ident.clone(),
                 name: ident_str,
@@ -211,17 +209,13 @@ impl GenerateScript {
                             (#max_line_width, #source.into())
                         }
                     });
-                    quote! {
-                        #crate_ident::TaggedOp {
-                            op: #ident.to_pushop(),
-                            src_file: file!().into(),
-                            src_line: line!(),
-                            src_column: column!(),
-                            src_code: vec![#(#src_code),*],
-                            pushed_names: Some(vec![Some(#ident_str.into())]),
-                            alt_pushed_names: Some(vec![]),
-                        }
-                    }
+                    self.make_tagged_op(
+                        &crate_ident,
+                        &quote! {#ident.to_pushop()},
+                        src_code,
+                        vec![quote!{Some(#ident_str.into())}],
+                        vec![],
+                    )
                 });
                 match_ops.push(quote! {
                     #input_struct::#variant_name { #(#unpack_variant),* } => vec![
@@ -320,17 +314,16 @@ impl GenerateScript {
         });
         let script_ident = &self.script_ident;
         let expr = push.expr;
+        let tagged_op = self.make_tagged_op(
+            crate_ident,
+            &quote!{(#expr).to_pushop()},
+            src,
+            vec![output_name],
+            vec![],
+        );
         Ok(quote_spanned! {span=>
             let #ident = (#expr).to_data();
-            #script_ident.push(#crate_ident::TaggedOp {
-                src_code: #src,
-                src_line: line!(),
-                src_column: column!(),
-                src_file: file!().into(),
-                op: (#expr).to_pushop(),
-                pushed_names: Some(vec![#output_name]),
-                alt_pushed_names: Some(vec![]),
-            });
+            #script_ident.push(#tagged_op);
         })
     }
 
@@ -352,16 +345,15 @@ impl GenerateScript {
                 Self::update_item_name(opcode_type, &opcode, &mut item)?;
                 let name = item.name_tokens();
                 self.push_alt(item);
+                let tagged_op = self.make_tagged_op(
+                    crate_ident,
+                    &quote!{#crate_ident::Op::Code(#ident)},
+                    src,
+                    vec![],
+                    vec![name],
+                );
                 Ok(quote_spanned! {expr_span=>
-                    #script_ident.push(#crate_ident::TaggedOp {
-                        src_code: #src,
-                        src_line: line!(),
-                        src_column: column!(),
-                        src_file: file!().into(),
-                        op: #crate_ident::Op::Code(#ident),
-                        pushed_names: Some(vec![]),
-                        alt_pushed_names: Some(vec![#name]),
-                    });
+                    #script_ident.push(#tagged_op);
                 })
             }
             Some(&opcode_type @ OP_FROMALTSTACK) => {
@@ -371,16 +363,15 @@ impl GenerateScript {
                 Self::update_item_name(opcode_type, &opcode, &mut item)?;
                 let name = item.name_tokens();
                 self.push(item);
+                let tagged_op = self.make_tagged_op(
+                    crate_ident,
+                    &quote!{#crate_ident::Op::Code(#ident)},
+                    src,
+                    vec![name],
+                    vec![],
+                );
                 Ok(quote_spanned! {expr_span=>
-                    #script_ident.push(#crate_ident::TaggedOp {
-                        src_code: #src,
-                        src_line: line!(),
-                        src_column: column!(),
-                        src_file: file!().into(),
-                        op: #crate_ident::Op::Code(#ident),
-                        pushed_names: Some(vec![#name]),
-                        alt_pushed_names: Some(vec![]),
-                    });
+                    #script_ident.push(#tagged_op);
                 })
             }
             Some(&opcode_type @ OP_PICK) | Some(&opcode_type @ OP_ROLL) => {
@@ -413,17 +404,16 @@ impl GenerateScript {
                 self.push(item);
                 let ident = opcode.ident;
                 let input_name = stack_item.ident;
+                let tagged_op = self.make_tagged_op(
+                    crate_ident,
+                    &quote!{#crate_ident::Op::Code(#ident)},
+                    src,
+                    vec![name],
+                    vec![],
+                );
                 Ok(quote_spanned! {expr_span=>
                     #crate_ident::func::#ident(#input_name);
-                    #script_ident.push(#crate_ident::TaggedOp {
-                        src_code: #src,
-                        src_line: line!(),
-                        src_column: column!(),
-                        src_file: file!().into(),
-                        op: #crate_ident::Op::Code(#ident),
-                        pushed_names: Some(vec![#name]),
-                        alt_pushed_names: Some(vec![]),
-                    });
+                    #script_ident.push(#tagged_op);
                 })
             }
             Some(&opcode_type) => self.run_other_opcode(opcode_type, opcode, crate_ident),
@@ -614,16 +604,15 @@ impl GenerateScript {
         let inputs = quote! {
             #(#input_idents),*
         };
+        let tagged_op = self.make_tagged_op(
+            crate_ident,
+            &quote!{#crate_ident::Op::Code(#ident)},
+            src,
+            pushed_names,
+            vec![],
+        );
         let push = quote_spanned! {expr_span=>
-            #script_ident.push(#crate_ident::TaggedOp {
-                src_code: #src,
-                src_line: line!(),
-                src_column: column!(),
-                src_file: file!().into(),
-                op: #crate_ident::Op::Code(#ident),
-                pushed_names: Some(vec![#(#pushed_names),*]),
-                alt_pushed_names: Some(vec![]),
-            });
+            #script_ident.push(#tagged_op);
         };
         Ok(quote! {
             #prefix ( #inputs );
@@ -664,17 +653,16 @@ impl GenerateScript {
                     });
                     let depth = depth.value();
                     let script_ident = &self.script_ident;
+                    let tagged_op = self.make_tagged_op(
+                        crate_ident,
+                        &quote!{(#depth).to_pushop()},
+                        src,
+                        vec![name],
+                        vec![],
+                    );
                     Ok(quote_spanned! {span=>
                         let #ident = (#depth).to_data();
-                        #script_ident.push(#crate_ident::TaggedOp {
-                            src_code: #src,
-                            src_line: line!(),
-                            src_column: column!(),
-                            src_file: file!().into(),
-                            op: (#depth).to_pushop(),
-                            pushed_names: Some(vec![#name]),
-                            alt_pushed_names: Some(vec![]),
-                        });
+                        #script_ident.push(#tagged_op);
                     })
                 } else {
                     Err(Error::new(opcode.expr_span, "Expected 1 variable name"))
@@ -793,14 +781,14 @@ impl GenerateScript {
         Ok(tokens.into_iter().collect())
     }
 
-    fn next_formatted_stmts(&mut self) -> TokenStream {
+    fn next_formatted_stmts(&mut self) -> Vec<TokenStream> {
         let stmt_idx = self.stmt_idx;
         self.stmt_idx += 1;
-        let stmts = self
+        self
             .formatted_lines
             .iter()
             .zip(self.max_line_widths.iter())
-            .map(|(lines, max_line_width)| {
+            .map(move |(lines, max_line_width)| {
                 let line = lines
                     .get(stmt_idx)
                     .map(|line| line.as_str())
@@ -808,10 +796,8 @@ impl GenerateScript {
                 quote! {
                     (#max_line_width, #line.into())
                 }
-            });
-        quote! {
-            vec![#(#stmts),*]
-        }
+            })
+            .collect()
     }
 
     fn verify_item_name(
@@ -883,6 +869,43 @@ impl GenerateScript {
         let ident = syn::Ident::new(&format!("__id_{}", self.n_ident), span);
         self.n_ident += 1;
         ident
+    }
+
+    fn make_tagged_op(&self,
+        crate_ident: &TokenStream,
+        op: &TokenStream,
+        src_code: impl IntoIterator<Item=TokenStream>,
+        pushed_names: impl IntoIterator<Item=TokenStream>,
+        alt_pushed_names: impl IntoIterator<Item=TokenStream>,
+    ) -> TokenStream {
+        let src_code = src_code.into_iter();
+        let pushed_names = pushed_names.into_iter();
+        let alt_pushed_names = alt_pushed_names.into_iter();
+        if self.enable_debug {
+            quote! {
+                #crate_ident::TaggedOp {
+                    op: #op,
+                    src_file: file!().into(),
+                    src_line: line!(),
+                    src_column: column!(),
+                    src_code: vec![#(#src_code),*],
+                    pushed_names: Some(vec![#(#pushed_names),*]),
+                    alt_pushed_names: Some(vec![#(#alt_pushed_names),*]),
+                }
+            }
+        } else {
+            quote! {
+                #crate_ident::TaggedOp {
+                    op: #op,
+                    src_file: "".into(),
+                    src_line: 0,
+                    src_column: 0,
+                    src_code: vec![],
+                    pushed_names: None,
+                    alt_pushed_names: None,
+                }
+            }
+        }
     }
 }
 
