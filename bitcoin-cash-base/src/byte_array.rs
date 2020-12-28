@@ -640,9 +640,15 @@ impl<'de> serde::Deserialize<'de> for ByteArray {
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(ByteArray::from_slice_unnamed(
-            <&[u8] as serde::Deserialize<'de>>::deserialize(deserializer)?,
-        ))
+        if deserializer.is_human_readable() {
+            let hex = String::deserialize(deserializer)?;
+            let data = hex::decode(&hex).map_err(serde::de::Error::custom)?;
+            Ok(ByteArray::new_unnamed(data))
+        } else {
+            Ok(ByteArray::from_slice_unnamed(
+                <&[u8] as serde::Deserialize<'de>>::deserialize(deserializer)?,
+            ))
+        }
     }
 }
 
@@ -651,7 +657,11 @@ impl serde::Serialize for ByteArray {
     where
         S: serde::Serializer,
     {
-        self.data.serialize(serializer)
+        if serializer.is_human_readable() {
+            self.hex().serialize(serializer)
+        } else {
+            self.data.serialize(serializer)
+        }
     }
 }
 

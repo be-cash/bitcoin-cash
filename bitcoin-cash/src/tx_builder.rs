@@ -6,11 +6,13 @@ use crate::{
 use std::any::Any;
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_FEE_PER_KB: u64 = 1000;
 pub const DUST_AMOUNT: u64 = 546;
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Deserialize, Serialize, PartialEq, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct UnsignedTxInput {
     pub prev_out: TxOutpoint,
     pub sequence: u32,

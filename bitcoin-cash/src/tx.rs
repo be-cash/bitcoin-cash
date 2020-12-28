@@ -10,6 +10,7 @@ pub const MAX_SIGNATURE_SIZE: usize = 72;
 
 #[bitcoin_code(crate = "crate")]
 #[derive(BitcoinCode, Deserialize, Serialize, PartialEq, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct TxOutpoint {
     pub tx_hash: Sha256d,
     pub vout: u32,
@@ -17,6 +18,7 @@ pub struct TxOutpoint {
 
 #[bitcoin_code(crate = "crate")]
 #[derive(BitcoinCode, Deserialize, Serialize, PartialEq, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct TxInput {
     pub prev_out: TxOutpoint,
     pub script: Script,
@@ -41,6 +43,7 @@ pub struct TxOutput {
 
 #[bitcoin_code(crate = "crate")]
 #[derive(BitcoinCode, Deserialize, Serialize, PartialEq, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct UnhashedTx {
     pub version: i32,
     pub inputs: Vec<TxInput>,
@@ -50,6 +53,7 @@ pub struct UnhashedTx {
 
 #[bitcoin_code(crate = "crate")]
 #[derive(BitcoinCode, Deserialize, Serialize, PartialEq, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Tx {
     #[bitcoin_code(skip)]
     unhashed_tx: UnhashedTx,
