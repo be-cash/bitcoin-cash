@@ -625,56 +625,65 @@ impl GenerateScript {
         opcode: ir::OpcodeStmt,
         crate_ident: &TokenStream,
     ) -> Result<TokenStream, Error> {
-        match opcode.ident.to_string().as_str() {
-            "depth_of" => {
+        use ir::OpcodeInput::*;
+        let opcode_name = opcode.ident.to_string();
+        match opcode_name.as_str() {
+            "depth_of" | "depth_of_offset" => {
                 let src = self.next_formatted_stmts();
-                if let Some(&[ir::OpcodeInput::Ident(ref ident)]) = opcode.input_names.as_deref() {
-                    let (depth, _) = self
-                        .variant_states
-                        .find_item(ident)
-                        .map_err(|err| Error::new(opcode.expr_span, err))?;
-                    let has_generated_name = opcode.output_names.is_none();
-                    let span = opcode.expr_span;
-                    let mut name = quote! { None };
-                    let ident = if let Some(&[ref ident]) = opcode.output_names.as_deref() {
-                        let ident_str = ident.to_string();
-                        name = quote! { Some(#ident_str.into()) };
-                        ident.clone()
-                    } else {
-                        self.make_ident(opcode.outputs_span)
-                    };
-                    let depth = Integer::new(depth)
-                        .map_err(|err| syn::Error::new(span, err.to_string()))?;
-                    self.push(StackItem {
-                        ident: ident.clone(),
-                        name: ident.to_string(),
-                        has_generated_name,
-                        integer: Some(depth),
-                    });
-                    let depth = depth.value();
-                    let script_ident = &self.script_ident;
-                    let tagged_op = self.make_tagged_op(
-                        crate_ident,
-                        &quote!{(#depth).to_pushop()},
-                        src,
-                        vec![name],
-                        vec![],
-                    );
-                    Ok(quote_spanned! {span=>
-                        let #ident = (#depth).to_data();
-                        #script_ident.push(#tagged_op);
-                    })
+                let (ident, offset) = if opcode_name.as_str() == "depth_of" {
+                    match opcode.input_names.as_deref() {
+                        Some(&[Ident(ref ident)]) => (ident, quote!{0}),
+                        _ => return Err(Error::new(opcode.expr_span, "Expected 1 variable name")),
+                    }
                 } else {
-                    Err(Error::new(opcode.expr_span, "Expected 1 variable name"))
-                }
+                    match opcode.input_names.as_deref() {
+                        Some(&[Ident(ref ident), Expr(ref expr)]) => (ident, quote!{#expr}),
+                        _ => return Err(Error::new(opcode.expr_span, "Expected 1 variable name")),
+                    }
+                };
+                let (depth, _) = self
+                    .variant_states
+                    .find_item(ident)
+                    .map_err(|err| Error::new(opcode.expr_span, err))?;
+                let has_generated_name = opcode.output_names.is_none();
+                let span = opcode.expr_span;
+                let mut name = quote! { None };
+                let ident = if let Some(&[ref ident]) = opcode.output_names.as_deref() {
+                    let ident_str = ident.to_string();
+                    name = quote! { Some(#ident_str.into()) };
+                    ident.clone()
+                } else {
+                    self.make_ident(opcode.outputs_span)
+                };
+                let depth = Integer::new(depth)
+                    .map_err(|err| syn::Error::new(span, err.to_string()))?;
+                self.push(StackItem {
+                    ident: ident.clone(),
+                    name: ident.to_string(),
+                    has_generated_name,
+                    integer: Some(depth),
+                });
+                let depth = depth.value();
+                let script_ident = &self.script_ident;
+                let tagged_op = self.make_tagged_op(
+                    crate_ident,
+                    &quote!{((#depth) + (#offset)).to_pushop()},
+                    src,
+                    vec![name],
+                    vec![],
+                );
+                Ok(quote_spanned! {span=>
+                    let #ident = ((#depth) + (#offset)).to_data();
+                    #script_ident.push(#tagged_op);
+                })
             }
             "transmute" => {
-                if let Some(&[ir::OpcodeInput::Ident(ref ident), ref type_input]) =
+                if let Some(&[Ident(ref ident), ref type_input]) =
                     opcode.input_names.as_deref()
                 {
                     let type_expr = match type_input {
-                        ir::OpcodeInput::Expr(type_expr) => type_expr.to_token_stream(),
-                        ir::OpcodeInput::Ident(ident) => ident.to_token_stream(),
+                        Expr(type_expr) => type_expr.to_token_stream(),
+                        Ident(ident) => ident.to_token_stream(),
                     };
                     let span = opcode.expr_span;
                     if let Some(&[ref out_ident]) = opcode.output_names.as_deref() {
