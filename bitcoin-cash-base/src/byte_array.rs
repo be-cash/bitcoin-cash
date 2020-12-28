@@ -47,9 +47,29 @@ pub struct ByteArray {
 }
 
 #[derive(Clone, Debug)]
-pub struct FixedByteArray<T> {
-    phantom: PhantomData<T>,
+pub struct FixedByteArray<T, H> {
+    phantom: PhantomData<(T, H)>,
     byte_array: ByteArray,
+}
+
+pub trait HumanReadableHex {
+    fn is_big_endian() -> bool;
+}
+
+#[derive(Clone, Debug)]
+pub struct HumanReadableHexBigEndian;
+#[derive(Clone, Debug)]
+pub struct HumanReadableHexLittleEndian;
+
+pub type FixedByteArrayBE<T> = FixedByteArray<T, HumanReadableHexBigEndian>;
+pub type FixedByteArrayLE<T> = FixedByteArray<T, HumanReadableHexLittleEndian>;
+
+impl HumanReadableHex for HumanReadableHexBigEndian {
+    fn is_big_endian() -> bool { true }
+}
+
+impl HumanReadableHex for HumanReadableHexLittleEndian {
+    fn is_big_endian() -> bool { false }
 }
 
 impl Function {
@@ -437,7 +457,7 @@ impl ByteArray {
     }
 }
 
-impl<T> FixedByteArray<T> {
+impl<T, H> FixedByteArray<T, H> {
     pub fn as_byte_array(&self) -> &ByteArray {
         &self.byte_array
     }
@@ -446,7 +466,7 @@ impl<T> FixedByteArray<T> {
         self.byte_array
     }
 
-    pub fn named(self, name: impl Into<Cow<'static, str>>) -> FixedByteArray<T> {
+    pub fn named(self, name: impl Into<Cow<'static, str>>) -> FixedByteArray<T, H> {
         FixedByteArray {
             phantom: PhantomData,
             byte_array: self.byte_array.named(name),
@@ -454,7 +474,7 @@ impl<T> FixedByteArray<T> {
     }
 }
 
-impl<T> FixedByteArray<T>
+impl<T, H> FixedByteArray<T, H>
 where
     T: AsRef<[u8]>,
 {
@@ -478,7 +498,7 @@ where
     }
 }
 
-impl<T> FixedByteArray<T>
+impl<T, H> FixedByteArray<T, H>
 where
     T: Default + AsRef<[u8]>,
 {
@@ -635,7 +655,7 @@ impl serde::Serialize for ByteArray {
     }
 }
 
-impl<T: Default + AsRef<[u8]>> Default for FixedByteArray<T> {
+impl<T: Default + AsRef<[u8]>, H> Default for FixedByteArray<T, H> {
     fn default() -> Self {
         FixedByteArray {
             phantom: PhantomData,
@@ -644,55 +664,68 @@ impl<T: Default + AsRef<[u8]>> Default for FixedByteArray<T> {
     }
 }
 
-impl<T> Hash for FixedByteArray<T> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl<T, H> Hash for FixedByteArray<T, H> {
+    fn hash<HS: std::hash::Hasher>(&self, state: &mut HS) {
         self.byte_array.hash(state)
     }
 }
 
-impl<T> Deref for FixedByteArray<T> {
+impl<T, H> Deref for FixedByteArray<T, H> {
     type Target = [u8];
     fn deref(&self) -> &Self::Target {
         &self.byte_array.data
     }
 }
 
-impl<T> AsRef<[u8]> for FixedByteArray<T> {
+impl<T, H> AsRef<[u8]> for FixedByteArray<T, H> {
     fn as_ref(&self) -> &[u8] {
         &self.byte_array.data
     }
 }
 
-impl<T, I: std::slice::SliceIndex<[u8]>> std::ops::Index<I> for FixedByteArray<T> {
+impl<T, H, I: std::slice::SliceIndex<[u8]>> std::ops::Index<I> for FixedByteArray<T, H> {
     type Output = I::Output;
     fn index(&self, index: I) -> &Self::Output {
         &self.byte_array.data[index]
     }
 }
 
-impl<T> PartialEq for FixedByteArray<T> {
-    fn eq(&self, other: &FixedByteArray<T>) -> bool {
+impl<T, H> PartialEq for FixedByteArray<T, H> {
+    fn eq(&self, other: &FixedByteArray<T, H>) -> bool {
         self.byte_array.data == other.byte_array.data
     }
 }
 
-impl<T> Eq for FixedByteArray<T> {}
+impl<T, H> Eq for FixedByteArray<T, H> {}
 
-impl<'de, T> serde::Deserialize<'de> for FixedByteArray<T>
+impl<'de, T, H> serde::Deserialize<'de> for FixedByteArray<T, H>
 where
-    T: serde::Deserialize<'de> + AsRef<[u8]>,
+    T: serde::Deserialize<'de> + AsRef<[u8]> + AsMut<[u8]> + Default,
+    H: HumanReadableHex
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        Ok(FixedByteArray::new_unnamed(T::deserialize(deserializer)?))
+        if deserializer.is_human_readable() {
+            let hex = String::deserialize(deserializer)?;
+            let mut data = hex::decode(&hex).map_err(serde::de::Error::custom)?;
+            if !H::is_big_endian() {
+                data.reverse();
+            }
+            let mut array = T::default();
+            array.as_mut().copy_from_slice(&data);
+            Ok(FixedByteArray::new_unnamed(array))
+        } else {
+            Ok(FixedByteArray::new_unnamed(T::deserialize(deserializer)?))
+        }
     }
 }
 
-impl<T> serde::Serialize for FixedByteArray<T>
+impl<T, H> serde::Serialize for FixedByteArray<T, H>
 where
     T: serde::Serialize + Default + AsMut<[u8]>,
+    H: HumanReadableHex,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -700,7 +733,15 @@ where
     {
         let mut array = T::default();
         array.as_mut().copy_from_slice(self.byte_array.as_ref());
-        array.serialize(serializer)
+        if serializer.is_human_readable() {
+            if !H::is_big_endian() {
+                array.as_mut().reverse();
+            }
+            let hex = hex::encode(array.as_mut());
+            hex.serialize(serializer)
+        } else {
+            array.serialize(serializer)
+        }
     }
 }
 

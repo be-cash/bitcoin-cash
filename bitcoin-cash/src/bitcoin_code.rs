@@ -1,3 +1,5 @@
+use bitcoin_cash_base::ByteArrayError;
+
 use crate::{
     encoding_utils::{encode_var_int, read_var_int},
     error::Result,
@@ -6,7 +8,14 @@ use crate::{
 
 pub trait BitcoinCode: Sized {
     fn ser(&self) -> ByteArray;
-    fn deser(data: ByteArray) -> Result<(Self, ByteArray)>;
+    fn deser_rest(data: ByteArray) -> Result<(Self, ByteArray)>;
+    fn deser(data: ByteArray) -> Result<Self> {
+        let (item, leftover) = Self::deser_rest(data)?;
+        if !leftover.is_empty() {
+            return Err(ByteArrayError::LeftoverBytes { bytes: leftover }.into());
+        }
+        return Ok(item);
+    }
 }
 
 fn read_size(data: ByteArray) -> Result<(usize, ByteArray)> {
@@ -22,14 +31,14 @@ impl BitcoinCode for ByteArray {
         ByteArray::new("size", encode_var_int(self.len() as u64)).concat(self.clone())
     }
 
-    fn deser(data: ByteArray) -> Result<(Self, ByteArray)> {
+    fn deser_rest(data: ByteArray) -> Result<(Self, ByteArray)> {
         let (len, rest) = read_size(data)?;
         let (byte_array, rest) = rest.split(len)?;
         Ok((byte_array, rest))
     }
 }
 
-impl<T> BitcoinCode for FixedByteArray<T>
+impl<T, H> BitcoinCode for FixedByteArray<T, H>
 where
     T: Default + AsRef<[u8]>,
 {
@@ -37,7 +46,7 @@ where
         self.as_byte_array().clone()
     }
 
-    fn deser(data: ByteArray) -> Result<(Self, ByteArray)> {
+    fn deser_rest(data: ByteArray) -> Result<(Self, ByteArray)> {
         let array = T::default();
         let split_idx = array.as_ref().len();
         let (left, right) = data.split(split_idx)?;
@@ -53,11 +62,11 @@ impl<T: BitcoinCode> BitcoinCode for Vec<T> {
         ByteArray::new("size", encode_var_int(self.len() as u64)).concat(data)
     }
 
-    fn deser(data: ByteArray) -> Result<(Self, ByteArray)> {
+    fn deser_rest(data: ByteArray) -> Result<(Self, ByteArray)> {
         let (len, mut byte_array) = read_size(data)?;
         let mut vec = Vec::with_capacity(len);
         for _ in 0..len {
-            let (item, rest) = T::deser(byte_array)?;
+            let (item, rest) = T::deser_rest(byte_array)?;
             vec.push(item);
             byte_array = rest;
         }
@@ -70,7 +79,7 @@ impl BitcoinCode for bool {
         [*self as u8].into()
     }
 
-    fn deser(data: ByteArray) -> Result<(Self, ByteArray)> {
+    fn deser_rest(data: ByteArray) -> Result<(Self, ByteArray)> {
         let (left, right) = data.split(1)?;
         Ok((left[0] != 0, right))
     }
@@ -84,7 +93,7 @@ macro_rules! array_impls {
                     self.to_le_bytes().into()
                 }
 
-                fn deser(data: ByteArray) -> Result<(Self, ByteArray)> {
+                fn deser_rest(data: ByteArray) -> Result<(Self, ByteArray)> {
                     let split_idx = std::mem::size_of::<$T>();
                     let (left, right) = data.split(split_idx)?;
                     let mut array = [0; std::mem::size_of::<$T>()];

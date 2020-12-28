@@ -3,6 +3,7 @@ use crate::{
     FixedByteArray, Function, Op,
 };
 
+use bitcoin_cash_base::FixedByteArrayLE;
 use serde::{Deserialize, Serialize};
 use sha1::Digest;
 use std::borrow::Cow;
@@ -48,15 +49,15 @@ pub trait Hashed: Display + Debug + Sized + Eq + PartialEq {
 }
 
 #[derive(Clone, Eq, PartialEq, Default, Hash, Deserialize, Serialize)]
-pub struct Sha1(FixedByteArray<[u8; 20]>);
+pub struct Sha1(FixedByteArrayLE<[u8; 20]>);
 #[derive(Clone, Eq, PartialEq, Default, Hash, Deserialize, Serialize)]
-pub struct Ripemd160(FixedByteArray<[u8; 20]>);
+pub struct Ripemd160(FixedByteArrayLE<[u8; 20]>);
 #[derive(Clone, Eq, PartialEq, Default, Hash, Deserialize, Serialize)]
-pub struct Sha256(FixedByteArray<[u8; 32]>);
+pub struct Sha256(FixedByteArrayLE<[u8; 32]>);
 #[derive(Clone, Eq, PartialEq, Default, Hash, Deserialize, Serialize)]
-pub struct Sha256d(FixedByteArray<[u8; 32]>);
+pub struct Sha256d(FixedByteArrayLE<[u8; 32]>);
 #[derive(Clone, Eq, PartialEq, Default, Hash, Deserialize, Serialize)]
-pub struct Hash160(FixedByteArray<[u8; 20]>);
+pub struct Hash160(FixedByteArrayLE<[u8; 20]>);
 
 impl Sha1 {
     pub fn new(hash: [u8; 20]) -> Self {
@@ -280,8 +281,8 @@ impl BitcoinCode for Sha1 {
         self.0.ser()
     }
 
-    fn deser(data: ByteArray) -> Result<(Self, ByteArray)> {
-        let (array, leftover) = FixedByteArray::<[u8; 20]>::deser(data)?;
+    fn deser_rest(data: ByteArray) -> Result<(Self, ByteArray)> {
+        let (array, leftover) = FixedByteArrayLE::<[u8; 20]>::deser_rest(data)?;
         Ok((Sha1(array), leftover))
     }
 }
@@ -291,8 +292,8 @@ impl BitcoinCode for Ripemd160 {
         self.0.ser()
     }
 
-    fn deser(data: ByteArray) -> Result<(Self, ByteArray)> {
-        let (array, leftover) = FixedByteArray::<[u8; 20]>::deser(data)?;
+    fn deser_rest(data: ByteArray) -> Result<(Self, ByteArray)> {
+        let (array, leftover) = FixedByteArrayLE::<[u8; 20]>::deser_rest(data)?;
         Ok((Ripemd160(array), leftover))
     }
 }
@@ -302,8 +303,8 @@ impl BitcoinCode for Sha256 {
         self.0.ser()
     }
 
-    fn deser(data: ByteArray) -> Result<(Self, ByteArray)> {
-        let (array, leftover) = FixedByteArray::<[u8; 32]>::deser(data)?;
+    fn deser_rest(data: ByteArray) -> Result<(Self, ByteArray)> {
+        let (array, leftover) = FixedByteArrayLE::<[u8; 32]>::deser_rest(data)?;
         Ok((Sha256(array), leftover))
     }
 }
@@ -313,8 +314,8 @@ impl BitcoinCode for Sha256d {
         self.0.ser()
     }
 
-    fn deser(data: ByteArray) -> Result<(Self, ByteArray)> {
-        let (array, leftover) = FixedByteArray::<[u8; 32]>::deser(data)?;
+    fn deser_rest(data: ByteArray) -> Result<(Self, ByteArray)> {
+        let (array, leftover) = FixedByteArrayLE::<[u8; 32]>::deser_rest(data)?;
         Ok((Sha256d(array), leftover))
     }
 }
@@ -324,8 +325,8 @@ impl BitcoinCode for Hash160 {
         self.0.ser()
     }
 
-    fn deser(data: ByteArray) -> Result<(Self, ByteArray)> {
-        let (array, leftover) = FixedByteArray::<[u8; 20]>::deser(data)?;
+    fn deser_rest(data: ByteArray) -> Result<(Self, ByteArray)> {
+        let (array, leftover) = FixedByteArrayLE::<[u8; 20]>::deser_rest(data)?;
         Ok((Hash160(array), leftover))
     }
 }

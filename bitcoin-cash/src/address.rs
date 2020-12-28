@@ -1,5 +1,7 @@
 use num_derive::*;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
+use std::convert::TryInto;
 
 use crate::error::{Error, Result};
 use crate::{Hash160, Hashed, Pubkey, Script};
@@ -14,7 +16,7 @@ pub struct Address<'a> {
     prefix: AddressPrefix<'a>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, FromPrimitive)]
+#[derive(Deserialize, Serialize, Clone, Copy, Debug, Eq, PartialEq, Hash, FromPrimitive)]
 pub enum AddressType {
     P2PKH = 0,
     P2SH = 8,
@@ -115,12 +117,13 @@ impl<'a> Address<'a> {
         }
     }
 
-    pub fn from_cash_addr(cash_addr: &'a str) -> Result<Address<'a>> {
-        let (hash, addr_type, prefix) = _from_cash_addr(cash_addr, Prefix::default().prefix_str())
+    pub fn from_cash_addr(cash_addr: impl Into<Cow<'a, str>>) -> Result<Address<'a>> {
+        let cash_addr = cash_addr.into();
+        let (hash, addr_type, prefix) = _from_cash_addr(&cash_addr, Prefix::default().prefix_str())
             .map_err(Error::InvalidCashAddr)?;
         let prefix_kind = Prefix::from_prefix_str(&prefix);
         Ok(Address {
-            cash_addr: cash_addr.into(),
+            cash_addr,
             addr_type,
             hash: Hash160::from_slice(&hash)?,
             prefix: AddressPrefix::new(prefix, prefix_kind),
@@ -179,6 +182,57 @@ impl<'a> Address<'a> {
                 prefix_str: self.prefix.prefix_str.to_string().into(),
                 prefix_kind: self.prefix.prefix_kind,
             },
+        }
+    }
+
+    pub fn into_owned_address(self) -> Address<'static> {
+        Address {
+            addr_type: self.addr_type,
+            hash: self.hash,
+            cash_addr: self.cash_addr.into_owned().into(),
+            prefix: AddressPrefix {
+                prefix_str: self.prefix.prefix_str.into_owned().into(),
+                prefix_kind: self.prefix.prefix_kind,
+            },
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct SerAddress<'a> {
+    addr_type: AddressType,
+    hash: [u8; 20],
+    prefix: &'a str,
+}
+
+impl Serialize for Address<'_> {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if serializer.is_human_readable() {
+            self.cash_addr().serialize(serializer)
+        } else {
+            SerAddress {
+                addr_type: self.addr_type,
+                hash: self.hash.as_slice().try_into().expect("Address hash not 20 bytes"),
+                prefix: self.prefix_str(),
+            }.serialize(serializer)
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Address<'static> {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        if deserializer.is_human_readable() {
+            let s = String::deserialize(deserializer)?;
+            Address::from_cash_addr(s).map_err(serde::de::Error::custom)
+        } else {
+            let ser_address = SerAddress::deserialize(deserializer)?;
+            Ok(Address::from_hash(ser_address.prefix, ser_address.addr_type, Hash160::new(ser_address.hash)).into_owned_address())
         }
     }
 }

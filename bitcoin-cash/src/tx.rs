@@ -1,6 +1,7 @@
 use crate::{
     BitcoinCode, ByteArray, Hashed, Script, Sha256d, SigHashFlags, ToPreimages, TxPreimage,
 };
+use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_SEQUENCE: u32 = 0xffff_ffff;
 // Mark Lundeberg: "71 bytes for the DER, but then +1 for the hashtype,
@@ -8,14 +9,14 @@ pub const DEFAULT_SEQUENCE: u32 = 0xffff_ffff;
 pub const MAX_SIGNATURE_SIZE: usize = 72;
 
 #[bitcoin_code(crate = "crate")]
-#[derive(BitcoinCode, PartialEq, Debug, Clone, Default)]
+#[derive(BitcoinCode, Deserialize, Serialize, PartialEq, Debug, Clone, Default)]
 pub struct TxOutpoint {
     pub tx_hash: Sha256d,
     pub vout: u32,
 }
 
 #[bitcoin_code(crate = "crate")]
-#[derive(BitcoinCode, PartialEq, Debug, Clone)]
+#[derive(BitcoinCode, Deserialize, Serialize, PartialEq, Debug, Clone)]
 pub struct TxInput {
     pub prev_out: TxOutpoint,
     pub script: Script,
@@ -32,14 +33,14 @@ pub struct TxInput {
 }
 
 #[bitcoin_code(crate = "crate")]
-#[derive(BitcoinCode, PartialEq, Debug, Clone)]
+#[derive(BitcoinCode, Deserialize, Serialize, PartialEq, Debug, Clone)]
 pub struct TxOutput {
     pub value: u64,
     pub script: Script,
 }
 
 #[bitcoin_code(crate = "crate")]
-#[derive(BitcoinCode, PartialEq, Debug, Clone)]
+#[derive(BitcoinCode, Deserialize, Serialize, PartialEq, Debug, Clone)]
 pub struct UnhashedTx {
     pub version: i32,
     pub inputs: Vec<TxInput>,
@@ -48,7 +49,7 @@ pub struct UnhashedTx {
 }
 
 #[bitcoin_code(crate = "crate")]
-#[derive(BitcoinCode, PartialEq, Debug, Clone)]
+#[derive(BitcoinCode, Deserialize, Serialize, PartialEq, Debug, Clone)]
 pub struct Tx {
     #[bitcoin_code(skip)]
     unhashed_tx: UnhashedTx,

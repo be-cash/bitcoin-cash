@@ -1,6 +1,7 @@
 use bitcoin_cash::{error, ByteArray, Hashed, Op, Opcode, Script, Sha256d, TaggedOp, TxOutput};
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Deserialize, Serialize, Clone, Debug, Hash)]
 pub struct TokenId(Sha256d);
 
 #[derive(Copy, Clone, Debug, Hash)]
@@ -134,6 +135,10 @@ impl TokenId {
 
     pub fn as_slice_be(&self) -> &[u8] {
         self.0.as_slice()
+    }
+
+    pub fn hash(&self) -> &Sha256d {
+        &self.0
     }
 
     pub fn to_vec(&self) -> Vec<u8> {

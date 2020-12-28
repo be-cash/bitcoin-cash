@@ -1,17 +1,7 @@
-use crate::{error::Result, BitcoinCode, ByteArray, ByteArrayError};
-
-pub fn decode_bitcoin_code<T: BitcoinCode>(byte_array: impl Into<ByteArray>) -> Result<T> {
-    let (item, leftover) = T::deser(byte_array.into())?;
-    if !leftover.is_empty() {
-        return Err(ByteArrayError::LeftoverBytes { bytes: leftover }.into());
-    }
-    return Ok(item);
-}
-
 #[cfg(test)]
 mod tests {
     use crate::error::Result;
-    use crate::{decode_bitcoin_code, BitcoinCode, ByteArray, Hashed, Sha256d};
+    use crate::{BitcoinCode, ByteArray, Hashed, Sha256d};
 
     #[bitcoin_code(crate = "crate")]
     #[derive(BitcoinCode, PartialEq, Debug)]
@@ -53,7 +43,7 @@ mod tests {
             int: 1,
             seq: vec![b"\x77".to_vec(), b"\x99".to_vec()],
         };
-        assert_eq!(expected, decode_bitcoin_code(&j)?);
+        assert_eq!(expected, Test::deser(j.into())?);
         Ok(())
     }
 
@@ -103,8 +93,8 @@ mod tests {
              010200030000000400000000000000\
              050600070000000800000000000000",
         ))?;
-        assert_eq!(sample, decode_bitcoin_code(sample.ser())?);
-        assert_eq!(sample, decode_bitcoin_code(sample_encoded.as_slice())?);
+        assert_eq!(sample, Test::deser(sample.ser())?);
+        assert_eq!(sample, Test::deser(sample_encoded.as_slice().into())?);
         assert_eq!(sample.ser().as_slice(), sample_encoded.as_slice());
         Ok(())
     }
@@ -150,31 +140,31 @@ mod tests {
         fn make(vec: Vec<u8>) -> Test {
             Test { array: vec.into() }
         }
-        let t: Test = decode_bitcoin_code([&[0xfc][..], &vec![0x77; 0xfc][..]].concat())?;
+        let t: Test = Test::deser([&[0xfc][..], &vec![0x77; 0xfc][..]].concat().into())?;
         assert_eq!(t, make(vec![0x77; 0xfc]));
         let t: Test =
-            decode_bitcoin_code([&[0xfd, 0xfd, 0x00][..], &vec![0x88; 0xfd][..]].concat())?;
+            Test::deser([&[0xfd, 0xfd, 0x00][..], &vec![0x88; 0xfd][..]].concat().into())?;
         assert_eq!(t, make(vec![0x88; 0xfd]));
         let t: Test =
-            decode_bitcoin_code([&[0xfd, 0x03, 0x01][..], &vec![0x99; 0x103][..]].concat())?;
+            Test::deser([&[0xfd, 0x03, 0x01][..], &vec![0x99; 0x103][..]].concat().into())?;
         assert_eq!(t, make(vec![0x99; 0x103]));
         let t: Test =
-            decode_bitcoin_code([&[0xfd, 0xff, 0xff][..], &vec![0xaa; 0xffff][..]].concat())?;
+            Test::deser([&[0xfd, 0xff, 0xff][..], &vec![0xaa; 0xffff][..]].concat().into())?;
         assert_eq!(t, make(vec![0xaa; 0xffff]));
-        let t: Test = decode_bitcoin_code(
+        let t: Test = Test::deser(
             [
                 &[0xfe, 0x00, 0x00, 0x01, 0x00][..],
                 &vec![0xbb; 0x10000][..],
             ]
-            .concat(),
+            .concat().into(),
         )?;
         assert_eq!(t, make(vec![0xbb; 0x10000]));
-        let t: Test = decode_bitcoin_code(
+        let t: Test = Test::deser(
             [
                 &[0xfe, 0x56, 0x34, 0x12, 0x00][..],
                 &vec![0xcc; 0x123456][..],
             ]
-            .concat(),
+            .concat().into(),
         )?;
         assert_eq!(t, make(vec![0xcc; 0x123456]));
         Ok(())
@@ -205,7 +195,7 @@ mod tests {
                 "fff9979f9c7afb3cbe7fe34083e6dd206e33b19df176772feefd55d71667bae1"
             )?,
         );
-        let (tx, _) = Tx::deser(tx_raw.clone().into()).unwrap();
+        let (tx, _) = Tx::deser_rest(tx_raw.clone().into()).unwrap();
         assert_eq!(tx.version, 1);
         assert_eq!(tx.locktime, 0);
         let tx_in0 = &tx.inputs[0];

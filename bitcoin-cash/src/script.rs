@@ -1,6 +1,7 @@
 use crate::error::{self, ScriptSerializeError};
 use crate::{encoding_utils::encode_int, BitcoinCode, ByteArray, Op, Opcode, Ops, TaggedOp};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::borrow::Cow;
 use std::io::Read;
 use std::sync::Arc;
@@ -294,10 +295,40 @@ impl BitcoinCode for Script {
         self.ser_ops().ser()
     }
 
-    fn deser(data: ByteArray) -> error::Result<(Self, ByteArray)> {
-        let (script_code, rest) = ByteArray::deser(data)?;
+    fn deser_rest(data: ByteArray) -> error::Result<(Self, ByteArray)> {
+        let (script_code, rest) = ByteArray::deser_rest(data)?;
         let ops = deserialize_ops_byte_array(script_code)?;
         Ok((Self::from_ops(ops), rest))
+    }
+}
+
+impl Serialize for Script {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let data = self.ser();
+        if serializer.is_human_readable() {
+            data.hex().serialize(serializer)
+        } else {
+            data.to_vec().serialize(serializer)
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Script {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let data;
+        if deserializer.is_human_readable() {
+            let hex = String::deserialize(deserializer)?;
+            data = hex::decode(&hex).map_err(serde::de::Error::custom)?;
+        } else {
+            data = Vec::<u8>::deserialize(deserializer)?;
+        }
+        Script::deser(data.into()).map_err(serde::de::Error::custom)
     }
 }
 

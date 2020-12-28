@@ -1,5 +1,7 @@
 use std::convert::{TryFrom, TryInto};
 
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
 pub type InnerInteger = i32;
 
 pub const MIN_SCRIPT_INTEGER: InnerInteger = -0x7fff_ffff;
@@ -45,6 +47,9 @@ pub enum IntegerError {
 pub struct Integer(InnerInteger);
 
 #[derive(Debug, Copy, Clone)]
+pub struct UInteger(Integer);
+
+#[derive(Debug, Copy, Clone)]
 pub struct IntegerResult(Result<Integer, IntegerError>);
 
 impl Integer {
@@ -69,6 +74,36 @@ impl Integer {
     }
 
     pub fn value(self) -> InnerInteger {
+        self.0
+    }
+}
+
+impl UInteger {
+    pub const ZERO: UInteger = UInteger(Integer::ZERO);
+
+    pub fn new(
+        int: impl TryInto<InnerInteger> + TryInto<i128> + Clone,
+    ) -> Result<Self, IntegerError> {
+        int.clone()
+            .try_into()
+            .map_err(|_| match int.try_into() {
+                Ok(value) => IntegerError::CastOverflow(value),
+                Err(_) => IntegerError::CastOverflowI128,
+            })
+            .and_then(|value| {
+                if !(0..=MAX_SCRIPT_INTEGER).contains(&value) {
+                    return Err(IntegerError::InvalidScriptInteger(value));
+                } else {
+                    return Ok(UInteger(Integer(value)));
+                }
+            })
+    }
+
+    pub fn value(&self) -> InnerInteger {
+        self.0.value()
+    }
+
+    pub fn integer(&self) -> Integer {
         self.0
     }
 }
@@ -376,6 +411,44 @@ where
             Err(_) => return None,
         };
         a.partial_cmp(&b)
+    }
+}
+
+impl Serialize for Integer {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.value().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Integer {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = InnerInteger::deserialize(deserializer)?;
+        Integer::new(value).map_err(serde::de::Error::custom)
+    }
+}
+
+impl Serialize for UInteger {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.value().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for UInteger {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = InnerInteger::deserialize(deserializer)?;
+        UInteger::new(value).map_err(serde::de::Error::custom)
     }
 }
 

@@ -135,7 +135,7 @@ fn generate(item_struct: syn::ItemStruct) -> Result<TokenStream, syn::Error> {
                 #parts_ident.push(self.#field_name.ser().named(#field_name_str));
             });
             deser_calls.push(quote! {
-                let (#field_name, data) = <#field_type as #crate_name::BitcoinCode>::deser(data)?;
+                let (#field_name, data) = <#field_type as #crate_name::BitcoinCode>::deser_rest(data)?;
             })
         } else {
             deser_calls.push(quote! {
@@ -154,7 +154,7 @@ fn generate(item_struct: syn::ItemStruct) -> Result<TokenStream, syn::Error> {
                 #crate_name::ByteArray::from_parts(#parts_ident)
             }
 
-            fn deser(data: #crate_name::ByteArray) -> std::result::Result<(Self, #crate_name::ByteArray), #crate_name::error::Error> {
+            fn deser_rest(data: #crate_name::ByteArray) -> std::result::Result<(Self, #crate_name::ByteArray), #crate_name::error::Error> {
                 #(#deser_calls)*
                 Ok((
                     #struct_name { #(#field_idents),* },
