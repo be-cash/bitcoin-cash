@@ -14,7 +14,7 @@ impl std::fmt::Display for Op {
         match self {
             Op::Code(code) => write!(f, "{:?}", code),
             Op::Invalid(code) => write!(f, "{:02x}", code),
-            Op::PushByteArray { array, .. } => write!(f, "0x{:?}", hex::encode(&array)),
+            Op::PushByteArray { array, .. } => write!(f, "0x{}", hex::encode(&array)),
             Op::PushBoolean(boolean) => {
                 write!(f, "{}", if *boolean { "OP_TRUE" } else { "OP_FALSE" })
             }

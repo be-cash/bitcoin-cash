@@ -288,6 +288,11 @@ impl Script {
     pub fn ser_ops(&self) -> ByteArray {
         serialize_ops(self.ops.iter().map(|op| &op.op)).expect("Serialize failed")
     }
+
+    pub fn deser_ops(byte_array: ByteArray) -> error::Result<Self> {
+        let ops = deserialize_ops_byte_array(byte_array)?;
+        Ok(Self::from_ops(ops))
+    }
 }
 
 impl BitcoinCode for Script {
@@ -329,6 +334,15 @@ impl<'de> Deserialize<'de> for Script {
             data = Vec::<u8>::deserialize(deserializer)?;
         }
         Script::deser(data.into()).map_err(serde::de::Error::custom)
+    }
+}
+
+impl std::fmt::Display for Script {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for op in self.ops.iter() {
+            write!(f, "{} ", op.op)?;
+        }
+        Ok(())
     }
 }
 

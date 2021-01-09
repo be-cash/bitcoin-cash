@@ -102,6 +102,15 @@ impl<'a> Into<AddressPrefix<'a>> for &'a str {
     }
 }
 
+impl From<String> for AddressPrefix<'static> {
+    fn from(prefix: String) -> Self {
+        AddressPrefix {
+            prefix_kind: Prefix::from_prefix_str(&prefix),
+            prefix_str: prefix.into(),
+        }
+    }
+}
+
 impl<'a> Address<'a> {
     pub fn from_hash<P: Into<AddressPrefix<'a>>>(
         prefix: P,
