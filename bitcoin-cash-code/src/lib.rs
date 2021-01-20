@@ -120,7 +120,7 @@ fn generate(item_struct: syn::ItemStruct) -> Result<TokenStream, syn::Error> {
                         .collect::<Vec<_>>()
                         .as_slice()
                     {
-                        &["skip"] => is_skipped = true,
+                        ["skip"] => is_skipped = true,
                         _ => return Err(syn::Error::new(list.nested.span(), "Invalid attribute")),
                     }
                 }
