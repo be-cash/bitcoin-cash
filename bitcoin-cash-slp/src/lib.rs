@@ -1,7 +1,7 @@
-use bitcoin_cash::{error, ByteArray, Hashed, Op, Opcode, Script, Sha256d, TaggedOp, TxOutput};
+use bitcoin_cash::{ByteArray, Hashed, Op, Opcode, Script, Sha256d, TaggedOp, TxInput, TxOutput, UnsignedTxInput, error};
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize, Clone, Debug, Hash)]
+#[derive(Deserialize, Serialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TokenId(Sha256d);
 
 #[derive(Copy, Clone, Debug, Hash)]
@@ -15,6 +15,64 @@ pub enum SlpTxType {
     SEND,
     MINT,
     COMMIT,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct SlpTx {
+    pub version: i32,
+    pub inputs: Vec<SlpTxInput>,
+    pub outputs: Vec<SlpTxOutput>,
+    pub lock_time: u32,
+    pub slp_data: Option<SlpData>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct SlpData {
+    pub token_id: TokenId,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct SlpTxInput {
+    pub index: usize,
+    pub token: SlpToken,
+    pub input: TxInput,
+    pub prev_script: Script,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct SlpTxOutput {
+    pub token: SlpToken,
+    pub output: TxOutput,
+}
+
+#[derive(Deserialize, Serialize, Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SlpToken {
+    pub amount: u64,
+    pub is_mint_baton: bool,
+    pub action: SlpAction,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum SlpAction {
+    NonSlp,
+    NonSlpBurn,
+    SlpParseError,
+    SlpUnsupportedVersion,
+    SlpV1Genesis,
+    SlpV1Mint,
+    SlpV1Send,
+    SlpNft1GroupGenesis,
+    SlpNft1GroupMint,
+    SlpNft1GroupSend,
+    SlpNft1UniqueChildGenesis,
+    SlpNft1UniqueChildSend,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct SlpUtxo {
+    pub input: UnsignedTxInput,
+    pub slp_token: SlpToken,
+    pub slp_data: Option<SlpData>,
 }
 
 pub struct SlpGenesisParams<'a> {
@@ -143,5 +201,11 @@ impl TokenId {
 
     pub fn to_vec(&self) -> Vec<u8> {
         self.0.to_vec_le()
+    }
+}
+
+impl Default for SlpAction {
+    fn default() -> Self {
+        SlpAction::NonSlp
     }
 }
