@@ -9,7 +9,7 @@ pub const DEFAULT_SEQUENCE: u32 = 0xffff_ffff;
 pub const MAX_SIGNATURE_SIZE: usize = 72;
 
 #[bitcoin_code(crate = "crate")]
-#[derive(BitcoinCode, Deserialize, Serialize, PartialEq, Debug, Clone, Default)]
+#[derive(BitcoinCode, Deserialize, Serialize, PartialEq, Eq, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TxOutpoint {
     pub tx_hash: Sha256d,
@@ -32,6 +32,9 @@ pub struct TxInput {
 
     #[bitcoin_code(skip)]
     pub is_p2sh: Option<bool>,
+
+    #[bitcoin_code(skip)]
+    pub sig_hash_flags: Option<Vec<SigHashFlags>>,
 }
 
 #[bitcoin_code(crate = "crate")]
@@ -73,6 +76,7 @@ impl TxInput {
             lock_script: None,
             value: None,
             is_p2sh: None,
+            sig_hash_flags: None,
         }
     }
 }
@@ -127,6 +131,10 @@ impl Tx {
 
     pub fn unhashed_tx(&self) -> &UnhashedTx {
         &self.unhashed_tx
+    }
+
+    pub fn into_unhashed_tx(self) -> UnhashedTx {
+        self.unhashed_tx
     }
 }
 

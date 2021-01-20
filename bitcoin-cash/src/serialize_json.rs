@@ -1,6 +1,6 @@
 use crate::{
     ByteArray, Function, Hashed, InnerInteger, Integer, IntegerError, Op, Opcode, Ops, Script,
-    Sha256d, TaggedOp, TxInput, TxOutpoint, TxOutput, UnhashedTx,
+    Sha256d, TaggedOp, TxInput, TxOutpoint, TxOutput, UnhashedTx, SigHashFlags,
 };
 use bimap::BiMap;
 use serde::{Deserialize, Serialize};
@@ -66,6 +66,7 @@ struct JsonInput {
     lock_script: Option<Vec<JsonTaggedOp>>,
     value: Option<u64>,
     is_p2sh: Option<bool>,
+    sig_hash_flags: Option<Vec<SigHashFlags>>
 }
 
 #[derive(Deserialize, Serialize)]
@@ -134,6 +135,7 @@ impl JsonTx {
                     .map(|script| json_tx.make_ops(script.ops().iter())),
                 value: input.value,
                 is_p2sh: input.is_p2sh,
+                sig_hash_flags: input.sig_hash_flags.clone(),
             };
             json_tx.inputs.push(json_input);
         }
@@ -188,6 +190,7 @@ impl JsonTx {
                     .map_or(Ok(None), |name| name.map(Some))?,
                 value: input.value,
                 is_p2sh: input.is_p2sh,
+                sig_hash_flags: input.sig_hash_flags.clone(),
             };
             tx.inputs.push(input);
         }
