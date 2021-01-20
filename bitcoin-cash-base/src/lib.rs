@@ -8,6 +8,7 @@ mod data_type;
 mod integer;
 mod op;
 mod opcode;
+pub mod encoding_utils;
 
 pub use byte_array::*;
 pub use data_type::*;
