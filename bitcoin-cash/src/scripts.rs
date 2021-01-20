@@ -6,7 +6,7 @@ use crate::{
     MAX_SIGNATURE_SIZE,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct P2PKHSignatory {
     pub pubkey: Pubkey,
     pub sig_hash_flags: SigHashFlags,

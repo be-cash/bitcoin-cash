@@ -2,10 +2,11 @@ use crate::{
     BitcoinByteArray, BitcoinCode, BitcoinDataType, ByteArray, DataType, Hashed, Op, Script,
     Sha256d, ToPreimages, TxOutpoint,
 };
+use serde::{Deserialize, Serialize};
 use bitflags::bitflags;
 
 bitflags! {
-    #[derive(Default)]
+    #[derive(Deserialize, Serialize, Default)]
     pub struct SigHashFlags: u32 {
         const ALL          = 0x01;
         const NONE         = 0x02;

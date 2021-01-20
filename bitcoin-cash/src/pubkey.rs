@@ -1,7 +1,7 @@
 use crate::{BitcoinByteArray, BitcoinDataType, ByteArray, DataType, Op};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Pubkey([u8; 33]);
 
 impl Pubkey {
