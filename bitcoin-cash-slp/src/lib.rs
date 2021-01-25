@@ -4,9 +4,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Deserialize, Serialize, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct TokenId(Sha256d);
 
-#[derive(Copy, Clone, Debug, Hash)]
+#[derive(Deserialize, Serialize, Copy, Clone, Debug, Hash)]
 pub enum SlpTokenType {
     Fungible = 1,
+    Nft1Child = 0x41,
+    Nft1Group = 0x81,
 }
 
 #[derive(Copy, Clone, Debug, Hash)]
@@ -73,6 +75,16 @@ pub struct SlpUtxo {
     pub input: UnsignedTxInput,
     pub slp_token: SlpToken,
     pub slp_data: Option<SlpData>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct TokenMeta {
+    pub ticker: String,
+    pub name: String,
+    pub document_url: String,
+    pub document_hash: Vec<u8>,
+    pub decimals: u8,
+    pub slp_token_type: SlpTokenType,
 }
 
 pub struct SlpGenesisParams<'a> {
