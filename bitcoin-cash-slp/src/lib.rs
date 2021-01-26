@@ -1,4 +1,4 @@
-use bitcoin_cash::{ByteArray, Hashed, Op, Opcode, Script, Sha256d, TaggedOp, TxInput, TxOutput, UnsignedTxInput, error};
+use bitcoin_cash::{ByteArray, Hashed, Op, Opcode, Script, Sha256d, TaggedOp, TxInput, TxOutput, UnhashedTx, UnsignedTxInput, error};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone, Debug, Hash, PartialEq, Eq)]
@@ -26,6 +26,7 @@ pub struct SlpTx {
     pub outputs: Vec<SlpTxOutput>,
     pub lock_time: u32,
     pub slp_data: Option<SlpData>,
+    pub tx_hash: Sha256d,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -219,5 +220,16 @@ impl TokenId {
 impl Default for SlpAction {
     fn default() -> Self {
         SlpAction::NonSlp
+    }
+}
+
+impl SlpTx {
+    pub fn into_unhashed_tx(self) -> UnhashedTx {
+        UnhashedTx {
+            version: self.version,
+            inputs: self.inputs.into_iter().map(|input| input.input).collect(),
+            outputs: self.outputs.into_iter().map(|output| output.output).collect(),
+            lock_time: self.lock_time,
+        }
     }
 }
